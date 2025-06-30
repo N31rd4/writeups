@@ -1,101 +1,84 @@
-# HackTheBox Writeup: Exploiting a Vulnerable System
+# Writeup: Exploiting a Grafana Instance and Privilege Escalation via Crontab-UI
 
-## Overview
+## Introduction
 
-This writeup showcases the exploitation of a vulnerable system, detailing the steps taken to achieve both user and root access. The process includes enumeration, vulnerability exploitation, and privilege escalation techniques.
+This writeup documents the process of exploiting a vulnerable Grafana instance and escalating privileges to root on a target system. The goal was to demonstrate a methodical approach to penetration testing, showcasing enumeration, exploitation, and privilege escalation techniques. The structure reflects my thought process and decision-making at each step, with accompanying images for clarity.
 
 ---
 
 ## Initial Enumeration
 
-### Open Ports
-Using `nmap`, the following open ports were identified:
-- **22**: SSH
-- **80**: HTTP
+The first step was to perform a basic scan of the target system using `nmap`. The scan revealed two open ports:
 
-### Web Application Testing
-- **Form Testing**: Attempts at SQL Injection (SQLi) and Cross-Site Scripting (XSS) yielded no results.
-- **Path Enumeration**: No interesting paths were discovered.
-- **Subdomain Enumeration**: A subdomain `grafana` was identified.  
-    ![Subdomain Enumeration](./subdomain.jpg)
+- **Port 22**: SSH
+- **Port 80**: HTTP
+
+I started by exploring the HTTP service. After testing a few forms for SQL injection and XSS vulnerabilities, I found nothing exploitable. Path enumeration also yielded no results. However, subdomain enumeration revealed something interesting: a subdomain hosting **Grafana**.
+
+![Subdomain Discovery](./subdomain.jpg)
 
 ---
 
-## Exploiting Grafana
+## Grafana Enumeration and Exploitation
 
-### Credentials
-The challenge provided the following credentials:
-- **Username**: `admin`
-- **Password**: `0D5oT70Fq13EvB5r`
+Accessing the Grafana instance, I noticed it was running **version v11.0.0**, as shown below:
 
-### Grafana Version
-The Grafana version was identified as **v11.0.0**.  
 ![Grafana Version](./gversion.jpg)
 
-### Vulnerability Research
-A known vulnerability, **CVE-2024-9264**, was identified:
-- **Type**: Remote Code Execution (RCE) and Local File Inclusion (LFI)
-- **Exploit**: [GitHub Repository](https://github.com/nollium/CVE-2024-9264)
+With the version identified, I researched known vulnerabilities and found **CVE-2024-9264**, which allows for Remote Code Execution (RCE) and Local File Inclusion (LFI). The exploit was available on GitHub: [CVE-2024-9264 Exploit](https://github.com/nollium/CVE-2024-9264).
 
-### Exploitation
-The exploit successfully worked, allowing access to sensitive files.  
-![LFI Exploitation](./lfi.jpg)
+Testing the exploit confirmed it worked. Below is the LFI in action:
 
-While a reverse shell was not possible, credentials were discovered in environment files.  
-![Discovered Credentials](./logins.jpg)
+![LFI Exploit](./lfi.jpg)
 
-### SSH Access
-Using the discovered credentials:
-- **Username**: `enzo`
-- **Password**: `RioTecRANDEntANT!`
+While I couldn’t establish a reverse shell directly through this exploit, exploring the system via LFI revealed environment files containing credentials.
 
-SSH access was successful, and the **user flag** was retrieved.  
+![Discovered Logins](./logins.jpg)
+
+The credentials included `enzo:RioTecRANDEntANT!`. Testing this password for SSH access, I successfully logged in as the user `enzo` and retrieved the user flag from their home directory.
+
 ![User Flag](./userflag.jpg)
 
 ---
 
 ## Privilege Escalation
 
-### Node.js Crontab-UI
-The system had the **crontab-ui** Node.js package installed.  
-![Node.js Modules](./node_modules.jpg)
+With user-level access, I began analyzing the system for privilege escalation opportunities. During my investigation, I noticed a **Node.js package** called `crontab-ui` installed on the system. This package allows users to manage cron jobs via a web interface. Below is the package in the `node_modules` directory:
 
-An associated service was running on port **8000**.  
-![Crontab Service](./crontab-service.jpg)
+![Node Modules](./node_modules.jpg)
 
-Accessing the service returned a **401 Unauthorized** response.  
+Further inspection revealed a service associated with `crontab-ui` running on **port 8000**. Accessing this port returned a **401 Unauthorized** response, indicating the service was protected by authentication.
+
 ![401 Unauthorized](./401.jpg)
 
-### Password Discovery
-A plaintext password was found in the crontab system:
-- **Password**: `P4ssw0rdS0pRi0T3c`  
-    ![Cleartext Password](./cleartext_pass.jpg)
+### Finding the Password
 
-### Privileged Access
-Testing for password reuse, the following credentials granted access to the protected web page:
-- **Username**: `root`
-- **Password**: `P4ssw0rdS0pRi0T3c`
+To gain access to the `crontab-ui` interface, I needed valid credentials. Searching the system, I discovered a plaintext password in the crontab configuration files.
 
-### Exploiting Crontab-UI
-Using the web interface, a cron job was created to execute a backdoor script as root.  
-![Backdoor Script](./backdoor.jpg)
+![Cleartext Password](./cleartext_pass.jpg)
 
-### Root Flag
-The backdoor provided root access, allowing retrieval of the **root flag**.  
+The password was `P4ssw0rdS0pRi0T3c`. Testing for password reuse, I logged into the `crontab-ui` interface with `root:P4ssw0rdS0pRi0T3c`. It worked, granting me access to the web interface, which allowed me to edit cron jobs.
+
+---
+
+## Exploiting Crontab-UI for Root Access
+
+With access to the `crontab-ui` interface, I created a new cron job to execute a simple backdoor script as root. This granted me root access to the system.
+
+![Backdoor Cron Job](./backdoor.jpg)
+
+After executing the cron job, I successfully obtained the root flag.
+
 ![Root Flag](./flag_root.jpg)
 
 ---
 
 ## Conclusion
 
-This writeup demonstrates a complete exploitation chain:
-1. Enumeration of services and subdomains.
-2. Exploitation of a Grafana vulnerability to gain initial access.
-3. Privilege escalation via a misconfigured Node.js crontab service.
+This challenge was a great exercise in methodical exploitation and privilege escalation. Key takeaways include:
 
-This exercise highlights the importance of:
-- Securing sensitive credentials.
-- Regularly updating vulnerable software.
-- Restricting access to administrative services.
+1. **Enumeration is critical**: Subdomain discovery and version identification were pivotal in finding the Grafana vulnerability.
+2. **Password reuse is a common weakness**: Both SSH and `crontab-ui` were compromised due to reused credentials.
+3. **Understanding the system**: Recognizing the potential of `crontab-ui` as a privilege escalation vector was essential.
 
---- 
+Thanks for reading !
