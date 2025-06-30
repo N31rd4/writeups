@@ -5,7 +5,7 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
 ## Writeups Index
 
 ### HackTheBox
-- [Exploiting a Vulnerable System](../../planning/writeup.md)  
+- [PLANNING](./planning/writeup.md)  
     *Overview*: Demonstrates the exploitation of a Grafana vulnerability, privilege escalation via a misconfigured Node.js crontab service, and retrieval of root access.
 
 ---
