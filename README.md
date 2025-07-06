@@ -7,7 +7,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
 ### HackTheBox
 - [PLANNING](./planning/writeup.md)  
     *Overview*: Demonstrates the exploitation of a Grafana vulnerability, privilege escalation via a misconfigured Node.js crontab service, and retrieval of root access.
-
+- [Nocturnal](./nocturnal/writeup.md)  
+    *Overview*: Explores enumeration techniques, exploitation of file upload vulnerabilities, command injection attempts, and privilege escalation using a known CVE in ISPConfig.
 ---
 
 ### How to Use
