@@ -9,6 +9,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Demonstrates the exploitation of a Grafana vulnerability, privilege escalation via a misconfigured Node.js crontab service, and retrieval of root access.
 - [Nocturnal](./nocturnal/writeup.md)  
     *Overview*: Explores enumeration techniques, exploitation of file upload vulnerabilities, command injection attempts, and privilege escalation using a known CVE in ISPConfig.
+- [Dog](./dog/writeup.md)  
+    *Overview*: Highlights the exploitation of Backdrop CMS vulnerabilities, enumeration of users, password reuse, and privilege escalation using the `bee` binary.
 ---
 
 ### How to Use
