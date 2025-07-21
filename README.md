@@ -11,6 +11,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Explores enumeration techniques, exploitation of file upload vulnerabilities, command injection attempts, and privilege escalation using a known CVE in ISPConfig.
 - [Dog](./dog/writeup.md)  
     *Overview*: Highlights the exploitation of Backdrop CMS vulnerabilities, enumeration of users, password reuse, and privilege escalation using the `bee` binary.
+- [Outbound](./outbound/writeup.md)  
+    *Overview*: Covers the exploitation of Roundcube Webmail, decryption of sensitive data, and privilege escalation using a vulnerable binary.
 ---
 
 ### How to Use
