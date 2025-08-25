@@ -17,7 +17,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: AD DC compromise via NTLMv2 capture from a malicious ZIP, crack to p.agila, BloodHound path through “Service Accounts” for GenericWrite on winrm_svc, shadow credentials with `pywhisker`, PKINIT-derived NT hash, and foothold via `evil-winrm`.
 - [CodeTwo](./Code_2/writeup.md)  
     *Overview*: Exploits a vulnerability in `js2py` to escape the sandbox and execute Python code, cracks MD5 hashes for user credentials, and escalates privileges using a backup tool to gain root access.
-
+- [Editor](./Editor/writeup.md)  
+    *Overview*: Exploits XWiki vulnerabilities for initial access, find credentials, and escalates privileges using a SUID binary to gain root access.
 ### How to Use
 1. Navigate to the desired writeup by clicking the links above.
 2. Follow the detailed steps to understand the exploitation process.
