@@ -1,0 +1,23 @@
+J'arrive avec nmap, je vois deux ports ouvers 80 et 22.
+En arrivant sur la page web je vois pleins d'indices qui laissent penser a un software/librairie outdatée, je vois aussi que c'est fait avec next js, je vais donc chercher les CVE et je tombes sur un CVE assez récent, de plus le CVE parle de bypass un middleware de connection, et dans la page on vois des références au bypass de middleware et on a une page de connection, après inspection le site semble bien être vulnerable avec cette cve (img: sc/hints.jpg) (img: sc/cve.jpg)
+ce site explique très bien la faille https://securitylabs.datadoghq.com/articles/nextjs-middleware-auth-bypass/ , en gros dans next js il y a un header qui permet d'identifier en interne si les requetes viennent d'un middleware ou de l'utilisateur, cela permet entre autres d'éviter de tomber dans une boucle où les middleware s'apellent entre eux de manière récursive. Mais si l'utilisateur insert directement cet headeur avec les bons paramètres, Next js va penser que cela vient d'une boucle infine et va lui faire bypass les midleware qui pourraient alimenter cette boucle (dont potentiellement les middleware d'identification) nous permettant de request directement la ressource voulue (img: sc/explanation.jpg)
+effectivement, en utilisant le bon headeur, j'arrive a accèder a des pages sans passer par les pages de login (img: sc/bypassed.jpg)
+je rajoute donc une regle a mon proxy burp pour rajouter automatiquement le headeur et pouvoir me déplacer n'importe où sans middleware d'auth (img: sc/header.jpg)
+en me baladant dans la doc je tombes sur un lien qui semble indiquer un potentiel LFI (img: sc/lfi.jpg)
+effectivement (img: sc/lfiproved.jpg)
+x-middleware-subrequest: middleware:middleware:middleware:middleware:middleware
+tout semble indiquer qu'on est dans un container docker
+je découvre que je recois un 500 quand je hit un folder dans la faille LFI, ça m'aidera beaucoup (img: sc/lfiproved.jpg)
+mon objectif est de trouver des creds, ils ne sont pas dans le .env ou dans les variables d'environnement que j'ai pu check précédemment avec le LFI donc ils doivent être hardcodés.
+J'ai accès au fichier json du dossier .next (build) qui me donne la liste de toutes les paths (img: sc/routes.jpg)
+j'identifie une path qui me parrais interressante, celle de l'authentification, dans le fichier je retrouves hardcodés des creds jeremy:MyNameIsJeremyAndILovePancakes qui correspondent a un mail que j'avais trouvé sur la homepage (img: sc/auth.jpg)
+J'essaye donc de me co en ssh avec jeremy et ça fonctionne, je trouves le user flag dans le home.
+directement je tombes sur une commande sudo que je pourrais utiliser pour privesc nommée "terraform"
+(img: sc/recon.jpg), je ne peux utiliser que apply avec une path qui pointe vers un dossier qui n'est pas ecrivable, cependant dans le home je trouves un .terraformrc que je peux modifier et qui contient une ligne qui s'apelle "override", selon moi c'est une grosse indication que je dois creuser par là.
+je vais donc me renseigner vite fais sur la doc de terraform pour comprendre le contexte
+Le provider est l'endroi ou il va chercher ses binaires (par exemple le binaire de aws dans l'exemple de la doc) dev_overrides en toutes logique permet de rediriger cette recherche dans un fichier local dans un environnement de dev (img: sc/terraform.jpg) (img: sc/dev.png)
+la doc a quelques indications sur les fichiers obligatoires dans le dossier, mais je copie simplement le dossier déjà existant vers un dossier que je peux controler et j'edite le provider pour qu'il me crée une backdoor (img: sc/trap.jpg)
+je modifie ensuite le fichier config pour override la localisation du provider vers mon dossier (img: sc/location.jpg)
+une fois executé, il execute mon fichier piège au lieu du binaire provider, un message d'erreur apparait et il a créé ma backdoor, il ne me reste plus qu'a l'utiliser pour trouver le binaire qui se situe dans /root/root.txt (img: sc/root.jpg)
+TERMINÉ !
+C'était un exo assez simple et sympathique, il y avais beaucoup de GROS indices ce qui rendais le tout assez "straitforward", mais les exploits étaient sympas car ce n'étais pas simplement des CVE a executer mais des petits tricks a faire manuellement, je penses que la principale difficultée était dans l'exploitation du LFI, j'ai perdu un tout petit peu de temps a pas me rendre compte que les dossiers retournaient un 500, j'ai appris que c'est l'une des premières choses a tester. Sinon je trouvais le tout très simple dût aux nombreux indices. Mais très satisfaisants
