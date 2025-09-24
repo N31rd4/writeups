@@ -1,0 +1,20 @@
+En utilisant nmap sur l'ip fournie je tombes sur deux ports 80 et 22 ouverts
+il y a de quoi se register, se login, dont un formulaire pour upload une image.
+a première vue j'ai rien reussis a exploiter ici
+je cherches donc a etendre mon champs de recherche, rien d'interessant en enumerant les paths mais je tombes sur un subdomaine ftp.soulmate.htb (img: ./sc/sub.jpg)
+sur ce sous-domaine je tombes sur une interface web pour ftp appelée "crushftp" (je crois que le concept du nom "soulmate" vient de là car crush en france signifie celui ou celle pour qui on a un faible bref mdr) (img: sc/crush.jpg) il y a enormément de vulns pour ce softwares divulguées sur internet
+en lisant un article sur le cve le plus récent je découvre un problème de race condition, en testant leur poc on me dit que mon app est vulnérable (img: sc/race.jpg)
+je modifie vitefais leur poc innofensif avec les requetes de l'article pour pouvoir rajouter un user admin (img: sc/modif.jpg)
+et ça fonctionne j'ai accès au panel
+je change mes autorisations dans les paramètres (img: sc/adperms.jpg), ce qui me permets ensuite d'upload un revshell en php (img: /sc/shell.jpg) et d'avoir un foothold
+après des jours a chercher, j'abandonne et je triche, finalement il fallait aller voir dans un des fichiers que j'ai ignoré dans les processus lancés par root (img: sc/process.jpg), il initialise un compte avec le mot de passe (img: sc/password.jpg) ben:HouseH0ldings998
+cve sur le ssh erlang
+après quelques recherches, je me demandes quels process root je pourrais hijack et je décrouvre un CVE avec le meme serveur ssh fait avec erlang
+https://medium.com/@RosanaFS/erlang-otp-ssh-cve-2025-32433-tryhackme-e410df5f1b53
+je récupère un exploit ici
+https://github.com/platsecurity/CVE-2025-32433/blob/main/CVE-2025-32433.py
+Je le teste et il fonctionne
+je le modifie pour générer une backdoor (img: sc/modif2.jpg)
+ça marche, le flag root se situe dans /root/root.txt
+FINIS
+La machine était pas si intuitive mais j'aurais du plus analyser les process lancés au lieu de passer par dessus sans regarder. Sinon le reste était assez simple et straitforward
