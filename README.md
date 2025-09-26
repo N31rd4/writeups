@@ -23,6 +23,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Exploits a Next.js middleware authentication bypass vulnerability, leverages LFI to retrieve credentials, and escalates privileges by exploiting terraform.
 - [Soulmate](./soulmate/writeup.md)  
     *Overview*: Exploits a race condition in CrushFTP to gain admin access, uploads a PHP reverse shell for foothold, and escalates privileges using a CVE in an Erlang-based SSH server.
+- [Expressway](./expressway/writeup.md)  
+    *Overview*: Explores an IKE VPN configuration vulnerability, cracks the preshared key using `psk-crack`, gains SSH access, and escalates privileges by exploiting a vulnerable `sudo` version.
 ### How to Use
 1. Navigate to the desired writeup by clicking the links above.
 2. Follow the detailed steps to understand the exploitation process.
