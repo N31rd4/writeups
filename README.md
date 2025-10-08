@@ -27,6 +27,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Explores an IKE VPN configuration vulnerability, cracks the preshared key using `psk-crack`, gains SSH access, and escalates privileges by exploiting a vulnerable `sudo` version.
 - [Imagery](./Imagery/writeup.md)  
     *Overview*: Exploits an XSS vulnerability to extract admin cookies, leverages an LFI vulnerability to explore server files, and escalates privileges by exploiting a command injection flaw in image processing.
+- [TombWatcher](./TombWatcher/writeup.md)  
+    *Overview*: Demonstrates AD enumeration, BloodHound-based privilege escalation, GMSA password retrieval, and exploitation of AD CS ESC15 misconfiguration to gain Domain Admin access.
 
 ### How to Use
 1. Navigate to the desired writeup by clicking the links above.

