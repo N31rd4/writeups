@@ -29,7 +29,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Exploits an XSS vulnerability to extract admin cookies, leverages an LFI vulnerability to explore server files, and escalates privileges by exploiting a command injection flaw in image processing.
 - [TombWatcher](./TombWatcher/writeup.md)  
     *Overview*: Demonstrates AD enumeration, BloodHound-based privilege escalation, GMSA password retrieval, and exploitation of AD CS ESC15 misconfiguration to gain Domain Admin access.
-
+- [Signed](./signed/writeup.md)  
+    *Overview*: Exploits a misconfigured MSSQL server, leverages Kerberos authentication vulnerabilities, and escalates privileges using silver ticket attacks to gain full system access.
 ### How to Use
 1. Navigate to the desired writeup by clicking the links above.
 2. Follow the detailed steps to understand the exploitation process.
