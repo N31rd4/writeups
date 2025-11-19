@@ -33,6 +33,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Exploits a misconfigured MSSQL server, leverages Kerberos authentication vulnerabilities, and escalates privileges using silver ticket attacks to gain full system access.
 - [Conversor](./conversor/writeup.md)  
     *Overview*: Exploits a path traversal vulnerability to achieve arbitrary file write, gains foothold via cron-executed Python scripts, and escalates privileges using the `needrestart` CVE-2024-48990 vulnerability.
+- [Giveback](./giveback/writeup.md)  
+    *Overview*: Exploits the GiveWP plugin vulnerability for initial access, leverages Kubernetes service account tokens to enumerate secrets, and escalates privileges by exploiting a misconfigured `runc` binary to escape the container and gain root access.
 ### How to Use
 1. Navigate to the desired writeup by clicking the links above.
 2. Follow the detailed steps to understand the exploitation process.
