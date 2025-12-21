@@ -36,7 +36,9 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
 - [Giveback](./giveback/writeup.md)  
     *Overview*: Exploits the GiveWP plugin vulnerability for initial access, leverages Kubernetes service account tokens to enumerate secrets, and escalates privileges by exploiting a misconfigured `runc` binary to escape the container and gain root access.
 - [Eighteen](./Eighteen/writeup.md)  
-        *Overview*: Exploits an MSSQL server misconfiguration for initial access, leverages Kerberos delegation vulnerabilities to impersonate privileged users, and escalates privileges using Badsuccessor
+    *Overview*: Exploits an MSSQL server misconfiguration for initial access, leverages Kerberos delegation vulnerabilities to impersonate privileged users, and escalates privileges using Badsuccessor
+- [MonitorsFour](./MonitorsFour/writeup.md)  
+    *Overview*: Explores API token bypass techniques, exploits a CVE in Cacti for initial access, gains foothold via Docker container escape, and escalates privileges by mounting the host filesystem to retrieve sensitive files.
 ### How to Use
 1. Navigate to the desired writeup by clicking the links above.
 2. Follow the detailed steps to understand the exploitation process.
