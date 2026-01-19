@@ -41,6 +41,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Explores API token bypass techniques, exploits a CVE in Cacti for initial access, gains foothold via Docker container escape, and escalates privileges by mounting the host filesystem to retrieve sensitive files.
 - [Gavel](./Gavel/writeup.md)  
     *Overview*: Exploits a YAML injection vulnerability in a custom auction service, gains foothold via a crafted reverse shell, and escalates privileges by leveraging a misconfigured root daemon.
+- [NanoCorp](./NanoCorp/writeup.md)  
+    *Overview*: Explores NTLM hash theft via a ZIP extraction vulnerability, BloodHound-based privilege escalation, exploitation of CheckMK CVE for local privilege escalation, and bypassing Windows Defender with a custom payload to gain root access.
 ### How to Use
 1. Navigate to the desired writeup by clicking the links above.
 2. Follow the detailed steps to understand the exploitation process.
