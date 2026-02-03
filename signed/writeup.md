@@ -26,7 +26,7 @@ I fired up Metasploit and used a module to perform an NTLM steal attack against 
 
 Hashcat made quick work of cracking it, revealing the credentials `MSSQLSVC:purPLE9795!@`.
 
-![Hashcat Success](sc/responder.jpg)
+![Hashcat Success](sc/cracked.jpg)
 
 ## Exploring the MSSQL Server
 

@@ -45,6 +45,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Explores NTLM hash theft via a ZIP extraction vulnerability, BloodHound-based privilege escalation, exploitation of CheckMK CVE for local privilege escalation, and bypassing Windows Defender with a custom payload to gain root access.
 - [Browsed](./Browsed/writeup.md)  
     *Overview*: Explores a Chrome extension vulnerability to achieve initial access, leverages SSRF to discover internal services, and escalates privileges using Python cache poisoning to gain root access.
+- [Facts](./Facts/Writeup.md)  
+    *Overview*: Exploits a mass assignment vulnerability in Camaleon CMS for privilege escalation, retrieves AWS credentials to access S3 buckets, downloads private SSH keys for initial access, and escalates privileges using a custom Ruby fact with `facter` to gain root access.
 ### How to Use
 1. Navigate to the desired writeup by clicking the links above.
 2. Follow the detailed steps to understand the exploitation process.
