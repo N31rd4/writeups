@@ -1,0 +1,30 @@
+En utilisant nmap je tombes sur 2 ports ouverts 22 (ssh) et 8000/tcp open  http    Gunicorn 20.0.4
+Le code de la page est open source on peut le télécharger
+bizarrement dans le code source il y a une clée hardcodée app.secret_key = 'S3cr3tK3yC0d3Tw0'
+Simple placeholder ou vraie clée ? on verra, on note l'info pour l'instant
+En checkant les dépendances dans le fichier requirements.txt rien ne semble indiquer que des CVE interessantes soient disponibles
+tout en haut du app.py il y a ecrit js2py.disable_pyimport(), en cherchant sur internet ce que cela signifiait je tombes sur cette faille qui permet de sortir de la sandbox et d'executer du code python (même sur la dernière version de jspy, j'avais pas cherché de CVE me disant que c'était la dernière version disponible, finalement j'aurais dût)
+Avec js2py on peut importer des packages pythons et les utiliser, disable_pyimport() l'en empeche mais en explorant l'arbre de construction des objets js on peut retomber sur des fonctions pythons premettant l'execution de code.
+je teste avec un curl (très souvent présent sur les servs) et le poc et ça fonctionne (img: sc/test.jpg)
+avec un reverse shell j'ai un foothold (img: sc/foothold.jpg) 
+j'upgrade avec socat pour avoir un full tty,
+classique dans ce genre de trucs je regarde dans la db et je tentes de crack les mdp
+app@codetwo:~/app$ sqlite3 instance/users.db 
+SQLite version 3.31.1 2020-01-27 19:55:54
+Enter ".help" for usage hints.
+sqlite> SELECT * FROM user; 
+1|marco|649c9d65a206a75f5abe509fe128bce5
+2|app|a97588c0e2fa3a024876339e27aeb42e
+3|mc1|ce7af47187c49b266339d62229ab9b88
+
+les mdp sont des simples md5 sans salt, je vais donc checker sur crackstation et je tombes sur
+marco:sweetangelbabylove
+Le password est reuse pour le compte, le user flag se trouve dans le home (img: sc/userflag.jpg)
+je regarde si je peux utiliser sudo quelque part, et oui je peux sur un outil de backup (img: sc/sudoers.jpg)
+Je sais que souvent avec ce genre d'outil on peut executer des fonctions une fois le backup executé.
+en regardant le menu d'aide du programme je vois qu'il me faut un fichier de config, et ça tombe bien il y en a un dans le home, ce fichier de configuration confirme mon intuition, on peut executer des commandes avant ou après le backup (img: sc/exec_conf.jpg)
+je modifie donc le fichier config pour rajouter ma commande qui crée une bash suid (img: sc/conf.jpg)
+Je l'execute en forcant un backup avec les flags -bf découvers dans le menu help de la commande (img: sc/bf.jpg)
+et tout fonctionne, ma backdoor est créée, le flag root se situe dans /root/root.txt (img: sc/rootflag.jpg)
+TERMINÉ !
+La box était surement la plus simple que j'ai jamais faite, je n'ais pas appris grand chose mais j'imagine qu'elle est parfaite pour les débutants pour leur montrer les différentes étapes et la mentalité a avoir. J'ai quand même pût systematiser un peu mieux mon upgrade de shell avec socat, la strat avec python et stty me soulait

