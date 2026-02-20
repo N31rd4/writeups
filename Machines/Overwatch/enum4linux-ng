@@ -1,0 +1,861 @@
+┌──(kali㉿kali)-[~/Documents/overwatch]
+└─$ enum4linux-ng -u sqlsvc -p TI0LKcfHzZw1Vv -A overwatch.htb
+ENUM4LINUX - next generation (v1.3.7)
+
+ ==========================
+|    Target Information    |
+ ==========================
+[*] Target ........... overwatch.htb
+[*] Username ......... 'sqlsvc'
+[*] Random Username .. 'rbbeatlj'
+[*] Password ......... 'TI0LKcfHzZw1Vv'
+[*] Timeout .......... 5 second(s)
+
+ ======================================
+|    Listener Scan on overwatch.htb    |
+ ======================================
+[*] Checking LDAP
+[+] LDAP is accessible on 389/tcp
+[*] Checking LDAPS
+[+] LDAPS is accessible on 636/tcp
+[*] Checking SMB
+[+] SMB is accessible on 445/tcp
+[*] Checking SMB over NetBIOS
+[+] SMB over NetBIOS is accessible on 139/tcp
+
+ =====================================================
+|    Domain Information via LDAP for overwatch.htb    |
+ =====================================================
+[*] Trying LDAP
+[+] Appears to be root/parent DC
+[+] Long domain name is: overwatch.htb
+
+ ============================================================
+|    NetBIOS Names and Workgroup/Domain for overwatch.htb    |
+ ============================================================
+[-] Could not get NetBIOS names information via 'nmblookup': timed out
+
+ ==========================================
+|    SMB Dialect Check on overwatch.htb    |
+ ==========================================
+[*] Trying on 445/tcp
+[+] Supported dialects and settings:
+Supported dialects:  
+  SMB 1.0: false
+  SMB 2.0.2: true    
+  SMB 2.1: true 
+  SMB 3.0: true 
+  SMB 3.1.1: true    
+Preferred dialect: SMB 3.0
+SMB1 only: false
+SMB signing required: true
+
+ ============================================================
+|    Domain Information via SMB session for overwatch.htb    |
+ ============================================================
+[*] Enumerating via unauthenticated SMB session on 445/tcp
+[+] Found domain information via SMB
+NetBIOS computer name: S200401 
+NetBIOS domain name: OVERWATCH 
+DNS domain: overwatch.htb 
+FQDN: S200401.overwatch.htb    
+Derived membership: domain member   
+Derived domain: OVERWATCH 
+
+ ==========================================
+|    RPC Session Check on overwatch.htb    |
+ ==========================================
+[*] Check for anonymous access (null session)
+[+] Server allows authentication via username '' and password ''
+[*] Check for password authentication
+[+] Server allows authentication via username 'sqlsvc' and password 'TI0LKcfHzZw1Vv'
+[*] Check for guest access
+[+] Server allows authentication via username 'rbbeatlj' and password 'TI0LKcfHzZw1Vv'
+[H] Rerunning enumeration with user 'rbbeatlj' might give more results
+
+ ====================================================
+|    Domain Information via RPC for overwatch.htb    |
+ ====================================================
+[+] Domain: OVERWATCH
+[+] Domain SID: S-1-5-21-2797066498-1365161904-233915892
+[+] Membership: domain member
+
+ ================================================
+|    OS Information via RPC for overwatch.htb    |
+ ================================================
+[*] Enumerating via unauthenticated SMB session on 445/tcp
+[+] Found OS information via SMB
+[*] Enumerating via 'srvinfo'
+[+] Found OS information via 'srvinfo'
+[+] After merging OS information we have the following result:
+OS: Windows 10, Windows Server 2019, Windows Server 2016
+OS version: '10.0'   
+OS release: ''  
+OS build: '20348'    
+Native OS: not supported  
+Native LAN manager: not supported   
+Platform id: '500'   
+Server type: '0x80102f'   
+Server type string: Wk Sv Sql PDC Tim NT 
+
+ ======================================
+|    Users via RPC on overwatch.htb    |
+ ======================================
+[*] Enumerating users via 'querydispinfo'
+[+] Found 105 user(s) via 'querydispinfo'
+[*] Enumerating users via 'enumdomusers'
+[+] Found 105 user(s) via 'enumdomusers'
+[+] After merging user results we have 105 user(s) total:
+'1104':    
+  username: sqlsvc   
+  name: sqlsvc  
+  acb: '0x00000210'  
+  description: (null)
+'1105':    
+  username: sqlmgmt  
+  name: sqlmgmt 
+  acb: '0x00000210'  
+  description: (null)
+'1112':    
+  username: Charlie.Moss  
+  name: Charlie Moss 
+  acb: '0x00000214'  
+  description: (null)
+'1113':    
+  username: Tracy.Burns   
+  name: Tracy Burns  
+  acb: '0x00000214'  
+  description: (null)
+'1114':    
+  username: Kathryn.Bryan 
+  name: Kathryn Bryan
+  acb: '0x00000214'  
+  description: (null)
+'1115':    
+  username: Rachael.Thomas
+  name: Rachael Thomas    
+  acb: '0x00000214'  
+  description: (null)
+'1116':    
+  username: Aimee.Smith   
+  name: Aimee Smith  
+  acb: '0x00000214'  
+  description: (null)
+'1117':    
+  username: Duncan.Freeman
+  name: Duncan Freeman    
+  acb: '0x00000214'  
+  description: (null)
+'1118':    
+  username: John.Begum    
+  name: John Begum   
+  acb: '0x00000214'  
+  description: (null)
+'1119':    
+  username: Bernard.Hilton
+  name: Bernard Hilton    
+  acb: '0x00000214'  
+  description: (null)
+'1120':    
+  username: Kim.Hargreaves
+  name: Kim Hargreaves    
+  acb: '0x00000214'  
+  description: (null)
+'1121':    
+  username: Douglas.Burrows    
+  name: Douglas Burrows   
+  acb: '0x00000214'  
+  description: (null)
+'1122':    
+  username: Carole.Murray 
+  name: Carole Murray
+  acb: '0x00000214'  
+  description: (null)
+'1123':    
+  username: Olivia.Quinn  
+  name: Olivia Quinn 
+  acb: '0x00000214'  
+  description: (null)
+'1124':    
+  username: Trevor.Baker  
+  name: Trevor Baker 
+  acb: '0x00000214'  
+  description: (null)
+'1125':    
+  username: Kenneth.Dennis
+  name: Kenneth Dennis    
+  acb: '0x00000214'  
+  description: (null)
+'1126':    
+  username: Jeremy.Marshall    
+  name: Jeremy Marshall   
+  acb: '0x00000214'  
+  description: (null)
+'1127':    
+  username: Jodie.Jones   
+  name: Jodie Jones  
+  acb: '0x00000214'  
+  description: (null)
+'1128':    
+  username: Thomas.Lee    
+  name: Thomas Lee   
+  acb: '0x00000214'  
+  description: (null)
+'1129':    
+  username: Terence.Matthews   
+  name: Terence Matthews  
+  acb: '0x00000214'  
+  description: (null)
+'1130':    
+  username: Colin.Roberts 
+  name: Colin Roberts
+  acb: '0x00000214'  
+  description: (null)
+'1131':    
+  username: Aaron.Robinson
+  name: Aaron Robinson    
+  acb: '0x00000214'  
+  description: (null)
+'1132':    
+  username: Amanda.Jenkins
+  name: Amanda Jenkins    
+  acb: '0x00000214'  
+  description: (null)
+'1133':    
+  username: Debra.Arnold  
+  name: Debra Arnold 
+  acb: '0x00000214'  
+  description: (null)
+'1134':    
+  username: Michelle.Willis    
+  name: Michelle Willis   
+  acb: '0x00000214'  
+  description: (null)
+'1135':    
+  username: Kayleigh.Jones
+  name: Kayleigh Jones    
+  acb: '0x00000214'  
+  description: (null)
+'1136':    
+  username: Adam.Russell  
+  name: Adam Russell 
+  acb: '0x00000214'  
+  description: (null)
+'1137':    
+  username: Tracey.Kelly  
+  name: Tracey Kelly 
+  acb: '0x00000214'  
+  description: (null)
+'1138':    
+  username: Bethan.Dale   
+  name: Bethan Dale  
+  acb: '0x00000214'  
+  description: (null)
+'1139':    
+  username: Mandy.Wood    
+  name: Mandy Wood   
+  acb: '0x00000214'  
+  description: (null)
+'1140':    
+  username: Jenna.Phillips
+  name: Jenna Phillips    
+  acb: '0x00000214'  
+  description: (null)
+'1141':    
+  username: Carole.Yates  
+  name: Carole Yates 
+  acb: '0x00000214'  
+  description: (null)
+'1142':    
+  username: Graham.Perry  
+  name: Graham Perry 
+  acb: '0x00000214'  
+  description: (null)
+'1143':    
+  username: Catherine.Griffiths
+  name: Catherine Griffiths    
+  acb: '0x00000214'  
+  description: (null)
+'1144':    
+  username: Shaun.Jackson 
+  name: Shaun Jackson
+  acb: '0x00000214'  
+  description: (null)
+'1145':    
+  username: Bethan.Rogers 
+  name: Bethan Rogers
+  acb: '0x00000214'  
+  description: (null)
+'1146':    
+  username: Ellie.Singh   
+  name: Ellie Singh  
+  acb: '0x00000214'  
+  description: (null)
+'1147':    
+  username: Marie.Allan   
+  name: Marie Allan  
+  acb: '0x00000214'  
+  description: (null)
+'1148':    
+  username: Patrick.Holmes
+  name: Patrick Holmes    
+  acb: '0x00000214'  
+  description: (null)
+'1149':    
+  username: Victor.Hopkins
+  name: Victor Hopkins    
+  acb: '0x00000214'  
+  description: (null)
+'1150':    
+  username: Geraldine.Harper   
+  name: Geraldine Harper  
+  acb: '0x00000214'  
+  description: (null)
+'1151':    
+  username: George.Todd   
+  name: George Todd  
+  acb: '0x00000214'  
+  description: (null)
+'1152':    
+  username: Karl.Smith    
+  name: Karl Smith   
+  acb: '0x00000214'  
+  description: (null)
+'1153':    
+  username: Jacqueline.Norton  
+  name: Jacqueline Norton 
+  acb: '0x00000214'  
+  description: (null)
+'1154':    
+  username: Frederick.Murray   
+  name: Frederick Murray  
+  acb: '0x00000214'  
+  description: (null)
+'1155':    
+  username: Joe.Pearce    
+  name: Joe Pearce   
+  acb: '0x00000214'  
+  description: (null)
+'1156':    
+  username: Paul.Collins  
+  name: Paul Collins 
+  acb: '0x00000214'  
+  description: (null)
+'1157':    
+  username: Damien.Edwards
+  name: Damien Edwards    
+  acb: '0x00000214'  
+  description: (null)
+'1158':    
+  username: Eileen.Phillips    
+  name: Eileen Phillips   
+  acb: '0x00000214'  
+  description: (null)
+'1159':    
+  username: Carl.Johnson  
+  name: Carl Johnson 
+  acb: '0x00000214'  
+  description: (null)
+'1160':    
+  username: Kevin.Newton  
+  name: Kevin Newton 
+  acb: '0x00000214'  
+  description: (null)
+'1161':    
+  username: Natalie.Higgins    
+  name: Natalie Higgins   
+  acb: '0x00000214'  
+  description: (null)
+'1162':    
+  username: Francis.Weston
+  name: Francis Weston    
+  acb: '0x00000214'  
+  description: (null)
+'1163':    
+  username: Benjamin.Davison   
+  name: Benjamin Davison  
+  acb: '0x00000214'  
+  description: (null)
+'1164':    
+  username: Martin.Kemp   
+  name: Martin Kemp  
+  acb: '0x00000214'  
+  description: (null)
+'1165':    
+  username: Angela.Jones  
+  name: Angela Jones 
+  acb: '0x00000214'  
+  description: (null)
+'1166':    
+  username: Gareth.Ahmed  
+  name: Gareth Ahmed 
+  acb: '0x00000214'  
+  description: (null)
+'1167':    
+  username: Deborah.Morgan
+  name: Deborah Morgan    
+  acb: '0x00000214'  
+  description: (null)
+'1168':    
+  username: Grace.Taylor  
+  name: Grace Taylor 
+  acb: '0x00000214'  
+  description: (null)
+'1169':    
+  username: Roger.Hughes  
+  name: Roger Hughes 
+  acb: '0x00000214'  
+  description: (null)
+'1170':    
+  username: Albert.Barrett
+  name: Albert Barrett    
+  acb: '0x00000214'  
+  description: (null)
+'1171':    
+  username: Grace.Curtis  
+  name: Grace Curtis 
+  acb: '0x00000214'  
+  description: (null)
+'1172':    
+  username: Marilyn.Griffiths  
+  name: Marilyn Griffiths 
+  acb: '0x00000214'  
+  description: (null)
+'1173':    
+  username: Tracey.Barker 
+  name: Tracey Barker
+  acb: '0x00000214'  
+  description: (null)
+'1174':    
+  username: Suzanne.Hughes
+  name: Suzanne Hughes    
+  acb: '0x00000214'  
+  description: (null)
+'1175':    
+  username: Timothy.Jackson    
+  name: Timothy Jackson   
+  acb: '0x00000214'  
+  description: (null)
+'1176':    
+  username: Beverley.Thompson  
+  name: Beverley Thompson 
+  acb: '0x00000214'  
+  description: (null)
+'1177':    
+  username: Clare.Bartlett
+  name: Clare Bartlett    
+  acb: '0x00000214'  
+  description: (null)
+'1178':    
+  username: Irene.Johnson 
+  name: Irene Johnson
+  acb: '0x00000214'  
+  description: (null)
+'1179':    
+  username: Bernard.Wood  
+  name: Bernard Wood 
+  acb: '0x00000214'  
+  description: (null)
+'1180':    
+  username: Frank.McCarthy
+  name: Frank McCarthy    
+  acb: '0x00000214'  
+  description: (null)
+'1181':    
+  username: Elaine.Page   
+  name: Elaine Page  
+  acb: '0x00000214'  
+  description: (null)
+'1182':    
+  username: Elaine.Walker 
+  name: Elaine Walker
+  acb: '0x00000214'  
+  description: (null)
+'1183':    
+  username: Mohammad.Hill 
+  name: Mohammad Hill
+  acb: '0x00000214'  
+  description: (null)
+'1184':    
+  username: Glenn.Field   
+  name: Glenn Field  
+  acb: '0x00000214'  
+  description: (null)
+'1185':    
+  username: Deborah.Martin
+  name: Deborah Martin    
+  acb: '0x00000214'  
+  description: (null)
+'1186':    
+  username: Gail.Sullivan 
+  name: Gail Sullivan
+  acb: '0x00000214'  
+  description: (null)
+'1187':    
+  username: Maureen.Kirby 
+  name: Maureen Kirby
+  acb: '0x00000214'  
+  description: (null)
+'1188':    
+  username: Georgina.Chambers  
+  name: Georgina Chambers 
+  acb: '0x00000214'  
+  description: (null)
+'1189':    
+  username: Philip.Harris 
+  name: Philip Harris
+  acb: '0x00000214'  
+  description: (null)
+'1190':    
+  username: Samantha.Scott
+  name: Samantha Scott    
+  acb: '0x00000214'  
+  description: (null)
+'1191':    
+  username: Ann.Hill 
+  name: Ann Hill
+  acb: '0x00000214'  
+  description: (null)
+'1192':    
+  username: Chloe.Cox
+  name: Chloe Cox    
+  acb: '0x00000214'  
+  description: (null)
+'1193':    
+  username: Jamie.Gough   
+  name: Jamie Gough  
+  acb: '0x00000214'  
+  description: (null)
+'1194':    
+  username: Frederick.Hussain  
+  name: Frederick Hussain 
+  acb: '0x00000214'  
+  description: (null)
+'1195':    
+  username: Dean.Hobbs    
+  name: Dean Hobbs   
+  acb: '0x00000214'  
+  description: (null)
+'1196':    
+  username: Danielle.Moore
+  name: Danielle Moore    
+  acb: '0x00000214'  
+  description: (null)
+'1197':    
+  username: Timothy.Smith 
+  name: Timothy Smith
+  acb: '0x00000214'  
+  description: (null)
+'1198':    
+  username: Declan.Stone  
+  name: Declan Stone 
+  acb: '0x00000214'  
+  description: (null)
+'1199':    
+  username: Jacob.Wilson  
+  name: Jacob Wilson 
+  acb: '0x00000214'  
+  description: (null)
+'1200':    
+  username: Gary.Elliott  
+  name: Gary Elliott 
+  acb: '0x00000214'  
+  description: (null)
+'1201':    
+  username: Peter.Slater  
+  name: Peter Slater 
+  acb: '0x00000214'  
+  description: (null)
+'1202':    
+  username: Louise.Walton 
+  name: Louise Walton
+  acb: '0x00000214'  
+  description: (null)
+'1203':    
+  username: Brett.Haynes  
+  name: Brett Haynes 
+  acb: '0x00000214'  
+  description: (null)
+'1204':    
+  username: Elliot.Green  
+  name: Elliot Green 
+  acb: '0x00000214'  
+  description: (null)
+'1205':    
+  username: Wendy.Williams
+  name: Wendy Williams    
+  acb: '0x00000214'  
+  description: (null)
+'1206':    
+  username: Graham.Parker 
+  name: Graham Parker
+  acb: '0x00000214'  
+  description: (null)
+'1207':    
+  username: Abdul.Stevens 
+  name: Abdul Stevens
+  acb: '0x00000214'  
+  description: (null)
+'1208':    
+  username: Brett.Bailey  
+  name: Brett Bailey 
+  acb: '0x00000214'  
+  description: (null)
+'1209':    
+  username: Benjamin.Harrison  
+  name: Benjamin Harrison 
+  acb: '0x00000214'  
+  description: (null)
+'1210':    
+  username: Emily.Cooper  
+  name: Emily Cooper 
+  acb: '0x00000214'  
+  description: (null)
+'1211':    
+  username: Roger.Spencer 
+  name: Roger Spencer
+  acb: '0x00000214'  
+  description: (null)
+'500':
+  username: Administrator 
+  name: (null)  
+  acb: '0x00000210'  
+  description: Built-in account for administering the computer/domain  
+'501':
+  username: Guest    
+  name: (null)  
+  acb: '0x00000214'  
+  description: Built-in account for guest access to the computer/domain
+'502':
+  username: krbtgt   
+  name: (null)  
+  acb: '0x00020011'  
+  description: Key Distribution Center Service Account  
+
+ =======================================
+|    Groups via RPC on overwatch.htb    |
+ =======================================
+[*] Enumerating local groups
+[+] Found 6 group(s) via 'enumalsgroups domain'
+[*] Enumerating builtin groups
+[+] Found 28 group(s) via 'enumalsgroups builtin'
+[*] Enumerating domain groups
+[+] Found 16 group(s) via 'enumdomgroups'
+[+] After merging groups results we have 50 group(s) total:
+'1101':    
+  groupname: DnsAdmins    
+  type: local   
+'1102':    
+  groupname: DnsUpdateProxy    
+  type: domain  
+'1103':    
+  groupname: SQLServer2005SQLBrowserUser$S200401   
+  type: local   
+'1111':    
+  groupname: employees    
+  type: domain  
+'498':
+  groupname: Enterprise Read-only Domain Controllers    
+  type: domain  
+'512':
+  groupname: Domain Admins
+  type: domain  
+'513':
+  groupname: Domain Users 
+  type: domain  
+'514':
+  groupname: Domain Guests
+  type: domain  
+'515':
+  groupname: Domain Computers  
+  type: domain  
+'516':
+  groupname: Domain Controllers
+  type: domain  
+'517':
+  groupname: Cert Publishers   
+  type: local   
+'518':
+  groupname: Schema Admins
+  type: domain  
+'519':
+  groupname: Enterprise Admins 
+  type: domain  
+'520':
+  groupname: Group Policy Creator Owners 
+  type: domain  
+'521':
+  groupname: Read-only Domain Controllers
+  type: domain  
+'522':
+  groupname: Cloneable Domain Controllers
+  type: domain  
+'525':
+  groupname: Protected Users   
+  type: domain  
+'526':
+  groupname: Key Admins   
+  type: domain  
+'527':
+  groupname: Enterprise Key Admins  
+  type: domain  
+'544':
+  groupname: Administrators    
+  type: builtin 
+'545':
+  groupname: Users   
+  type: builtin 
+'546':
+  groupname: Guests  
+  type: builtin 
+'548':
+  groupname: Account Operators 
+  type: builtin 
+'549':
+  groupname: Server Operators  
+  type: builtin 
+'550':
+  groupname: Print Operators   
+  type: builtin 
+'551':
+  groupname: Backup Operators  
+  type: builtin 
+'552':
+  groupname: Replicator   
+  type: builtin 
+'553':
+  groupname: RAS and IAS Servers    
+  type: local   
+'554':
+  groupname: Pre-Windows 2000 Compatible Access    
+  type: builtin 
+'555':
+  groupname: Remote Desktop Users   
+  type: builtin 
+'556':
+  groupname: Network Configuration Operators  
+  type: builtin 
+'557':
+  groupname: Incoming Forest Trust Builders   
+  type: builtin 
+'558':
+  groupname: Performance Monitor Users   
+  type: builtin 
+'559':
+  groupname: Performance Log Users  
+  type: builtin 
+'560':
+  groupname: Windows Authorization Access Group    
+  type: builtin 
+'561':
+  groupname: Terminal Server License Servers  
+  type: builtin 
+'562':
+  groupname: Distributed COM Users  
+  type: builtin 
+'568':
+  groupname: IIS_IUSRS    
+  type: builtin 
+'569':
+  groupname: Cryptographic Operators
+  type: builtin 
+'571':
+  groupname: Allowed RODC Password Replication Group    
+  type: local   
+'572':
+  groupname: Denied RODC Password Replication Group
+  type: local   
+'573':
+  groupname: Event Log Readers 
+  type: builtin 
+'574':
+  groupname: Certificate Service DCOM Access  
+  type: builtin 
+'575':
+  groupname: RDS Remote Access Servers   
+  type: builtin 
+'576':
+  groupname: RDS Endpoint Servers   
+  type: builtin 
+'577':
+  groupname: RDS Management Servers 
+  type: builtin 
+'578':
+  groupname: Hyper-V Administrators 
+  type: builtin 
+'579':
+  groupname: Access Control Assistance Operators   
+  type: builtin 
+'580':
+  groupname: Remote Management Users
+  type: builtin 
+'582':
+  groupname: Storage Replica Administrators   
+  type: builtin 
+
+ =======================================
+|    Shares via RPC on overwatch.htb    |
+ =======================================
+[*] Enumerating shares
+[+] Found 6 share(s):
+ADMIN$:    
+  comment: Remote Admin   
+  type: Disk    
+C$:   
+  comment: Default share  
+  type: Disk    
+IPC$: 
+  comment: Remote IPC
+  type: IPC
+NETLOGON:  
+  comment: Logon server share  
+  type: Disk    
+SYSVOL:    
+  comment: Logon server share  
+  type: Disk    
+software$: 
+  comment: ''   
+  type: Disk    
+[*] Testing share ADMIN$
+[+] Mapping: DENIED, Listing: N/A
+[*] Testing share C$
+[+] Mapping: DENIED, Listing: N/A
+[*] Testing share IPC$
+[+] Mapping: OK, Listing: NOT SUPPORTED
+[*] Testing share NETLOGON
+[-] Could not parse result of smbclient command, please open a GitHub issue
+[*] Testing share SYSVOL
+[-] Could not parse result of smbclient command, please open a GitHub issue
+[*] Testing share software$
+[+] Mapping: OK, Listing: OK
+
+ ==========================================
+|    Policies via RPC for overwatch.htb    |
+ ==========================================
+[*] Trying port 445/tcp
+[+] Found policy:
+Domain password information:   
+  Password history length: 24  
+  Minimum password length: 7   
+  Minimum password age: 1 day 4 minutes  
+  Maximum password age: 41 days 23 hours 53 minutes
+  Password properties:    
+  - DOMAIN_PASSWORD_COMPLEX: true   
+  - DOMAIN_PASSWORD_NO_ANON_CHANGE: false
+  - DOMAIN_PASSWORD_NO_CLEAR_CHANGE: false    
+  - DOMAIN_PASSWORD_LOCKOUT_ADMINS: false
+  - DOMAIN_PASSWORD_PASSWORD_STORE_CLEARTEXT: false
+  - DOMAIN_PASSWORD_REFUSE_PASSWORD_CHANGE: false  
+Domain lockout information:    
+  Lockout observation window: 10 minutes 
+  Lockout duration: 10 minutes 
+  Lockout threshold: None 
+Domain logoff information:
+  Force logoff time: not set   
+
+ ==========================================
+|    Printers via RPC for overwatch.htb    |
+ ==========================================
+[-] Could not get printers via 'enumprinters': WERR_INVALID_NAME
+
+Completed after 10.26 seconds

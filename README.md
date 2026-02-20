@@ -52,6 +52,8 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Exploits a Pterodactyl Panel RCE vulnerability (CVE-2025-49132) for initial access, leverages database credentials to gain a foothold, and escalates privileges using a two-step chain involving `udisks` and `libblockdev` vulnerabilities (CVE-2025-6018 → CVE-2025-6019).
 - [WingData](./Machines/WingData/writeup.md)  
     *Overview*: Exploits a NULL byte truncation vulnerability in Wing FTP Server for authentication bypass, leverages Lua code injection for RCE, and escalates privileges using a Python tarfile extraction vulnerability (CVE-2025-4517).
+- [Overwatch](./Machines/Overwatch/Writeup.md)  
+    *Overview*: Demonstrates AD enumeration, exploitation of a hardcoded MSSQL service account, ADIDNS poisoning for DNS redirection, and privilege escalation via a vulnerable WCF SOAP service to achieve system-level access.
 #### Challenges
 - [Secure Notes](./Challenges/Secure_Notes/Writeup.md)  
     *Overview*: Exploits a prototype pollution vulnerability in Mongoose (CVE-2023-3696) to achieve arbitrary code execution, bypasses access restrictions to retrieve the flag, and demonstrates advanced Node.js exploitation techniques.
