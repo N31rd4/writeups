@@ -38,22 +38,24 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
     *Overview*: Exploits the GiveWP plugin vulnerability for initial access, leverages Kubernetes service account tokens to enumerate secrets, and escalates privileges by exploiting a misconfigured `runc` binary to escape the container and gain root access.
 - [Eighteen](./Machines/Eighteen/writeup.md)  
     *Overview*: Exploits an MSSQL server misconfiguration for initial access, leverages Kerberos delegation vulnerabilities to impersonate privileged users, and escalates privileges using Badsuccessor
-- [MonitorsFour](./Machines/MonitorsFour/writeup.md)  
+- [MonitorsFour](./Machines/MonitorsFour/Writeup.md)  
     *Overview*: Explores API token bypass techniques, exploits a CVE in Cacti for initial access, gains foothold via Docker container escape, and escalates privileges by mounting the host filesystem to retrieve sensitive files.
-- [Gavel](./Machines/Gavel/writeup.md)  
+- [Gavel](./Machines/Gavel/Writeup.md)  
     *Overview*: Exploits a YAML injection vulnerability in a custom auction service, gains foothold via a crafted reverse shell, and escalates privileges by leveraging a misconfigured root daemon.
-- [NanoCorp](./Machines/NanoCorp/writeup.md)  
+- [NanoCorp](./Machines/NanoCorp/Writeup.md)  
     *Overview*: Explores NTLM hash theft via a ZIP extraction vulnerability, BloodHound-based privilege escalation, exploitation of CheckMK CVE for local privilege escalation, and bypassing Windows Defender with a custom payload to gain root access.
-- [Browsed](./Machines/Browsed/writeup.md)  
+- [Browsed](./Machines/Browsed/Writeup.md)  
     *Overview*: Explores a Chrome extension vulnerability to achieve initial access, leverages SSRF to discover internal services, and escalates privileges using Python cache poisoning to gain root access.
 - [Facts](./Machines/Facts/Writeup.md)  
     *Overview*: Exploits a mass assignment vulnerability in Camaleon CMS for privilege escalation, retrieves AWS credentials to access S3 buckets, downloads private SSH keys for initial access, and escalates privileges using a custom Ruby fact with `facter` to gain root access.
-- [Pterodactyl](./Machines/Pterodactyl/writeup.md)  
+- [Pterodactyl](./Machines/Pterodactyl/Writeup.md)  
     *Overview*: Exploits a Pterodactyl Panel RCE vulnerability (CVE-2025-49132) for initial access, leverages database credentials to gain a foothold, and escalates privileges using a two-step chain involving `udisks` and `libblockdev` vulnerabilities (CVE-2025-6018 → CVE-2025-6019).
-- [WingData](./Machines/WingData/writeup.md)  
+- [WingData](./Machines/WingData/Writeup.md)  
     *Overview*: Exploits a NULL byte truncation vulnerability in Wing FTP Server for authentication bypass, leverages Lua code injection for RCE, and escalates privileges using a Python tarfile extraction vulnerability (CVE-2025-4517).
 - [Overwatch](./Machines/Overwatch/Writeup.md)  
     *Overview*: Demonstrates AD enumeration, exploitation of a hardcoded MSSQL service account, ADIDNS poisoning for DNS redirection, and privilege escalation via a vulnerable WCF SOAP service to achieve system-level access.
+- [Interpreter](./Machines/Interpreter/Writeup.md)  
+    *Overview*: Exploits a CVE in Mirth Connect to gain initial access, performs password hash brute force from the database for lateral movement, and bypasses an evaluation filter in the local API to escalate privileges.
 #### Challenges
 - [Secure Notes](./Challenges/Secure_Notes/Writeup.md)  
     *Overview*: Exploits a prototype pollution vulnerability in Mongoose (CVE-2023-3696) to achieve arbitrary code execution, bypasses access restrictions to retrieve the flag, and demonstrates advanced Node.js exploitation techniques.

