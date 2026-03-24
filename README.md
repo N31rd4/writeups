@@ -1,6 +1,6 @@
 # Pentesting Labs & CTF Writeups
 
-Welcome to the repository showcasing detailed writeups for various pentesting labs and Capture The Flag (CTF) challenges. Each writeup provides a comprehensive walkthrough of the exploitation process, including enumeration, vulnerability analysis, and privilege escalation techniques. test push
+Welcome to the repository showcasing detailed writeups for various pentesting labs and Capture The Flag (CTF) challenges. Each writeup provides a comprehensive walkthrough of the exploitation process, including enumeration, vulnerability analysis, and privilege escalation techniques.
 
 ## Writeups Index
 
