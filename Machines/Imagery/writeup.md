@@ -1,4 +1,5 @@
 # Imagery - HackTheBox Writeup
+[Here are the notes I took while solving](./walkthrough)
 
 Welcome to my writeup for the **Imagery** challenge on HackTheBox. This box was a fun ride, filled with interesting steps and a couple of moments where I had to pause, rethink, and adjust my approach. Let me walk you through my journey.
 

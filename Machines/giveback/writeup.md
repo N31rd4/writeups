@@ -1,4 +1,5 @@
 # HackTheBox – Giveback (Medium) – Full Walkthrough
+[Here are the notes I took while solving](./walkthrough)
 
 This writeup is a mix between a professional walkthrough and a personal lab diary. I’ll go through my full thought process, including all the dead ends, the “WTF” moments, and the little tricks I had to adjust along the way. The box is called **Giveback**, and that name makes sense once you see how many “layers” of infrastructure it makes you dig through.
 

@@ -1,4 +1,5 @@
 # Secure Notes — HTB Writeup
+[Here are the notes I took while solving](./Walkthrough)
 
 ## First Look
 

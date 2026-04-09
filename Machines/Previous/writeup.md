@@ -1,4 +1,5 @@
 # Writeup: HackTheBox Challenge
+[Here are the notes I took while solving](./walkthrough)
 
 ## Introduction
 

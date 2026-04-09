@@ -1,4 +1,5 @@
 # Hack The Box — Pterodactyl (Writeup)
+[Here are the notes I took while solving](./Walkthrough)
 
 > A “medium” box that ended up feeling pretty straightforward once the right breadcrumbs were found. The initial foothold came from a fresh Pterodactyl Panel RCE (CVE-2025-49132), and root was a two-step chain around console privileges + `udisks` / `libblockdev` mounting behavior (CVE-2025-6018 → CVE-2025-6019).
 

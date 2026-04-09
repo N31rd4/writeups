@@ -1,4 +1,5 @@
 # AirTouch — HackTheBox Writeup
+[Here are the notes taken during the solving](./Walkthrough)
 
 > **Difficulty:** Medium | **Tags:** WiFi, WPA2-PSK, WPA2-Enterprise, SNMP, Evil Twin, Captive Portal, Ligolo-ng
 

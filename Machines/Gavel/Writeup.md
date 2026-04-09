@@ -1,4 +1,5 @@
 # Gavel - HackTheBox Writeup
+[Here are the notes I took while solving](./Walkthrough)
 
 ## Initial Reconnaissance
 

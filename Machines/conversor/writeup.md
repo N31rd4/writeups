@@ -1,4 +1,5 @@
 # Hack The Box — Conversor (Walkthrough)
+[Here are the notes I took while solving](./walkthrough)
 
 This is the path I took to root Conversor. It’s a professional writeup but I’ll keep it relaxed and honest about the detours I took, because that’s where the learning lives.
 

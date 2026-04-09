@@ -1,4 +1,6 @@
 # Code_2 Writeup
+[Here are the notes I took while solving](./walkthrough)
+
 
 Welcome to my writeup for the Code_2 box on HackTheBox. This was one of the simplest boxes I've ever done, but it was still a fun experience. It’s perfect for beginners, as it showcases the different steps and mindset needed to approach a CTF. Let’s dive into my journey.
 

@@ -1,6 +1,6 @@
 # CCTV — HackTheBox Writeup
 
-
+[Here are the notes I took while solving](./Walkthrough)
 ## Recon
 
 Standard nmap scan, nothing fancy:
@@ -170,4 +170,3 @@ Shell pops. I'm... root? Immediately? Didn't even have to pivot through `sa_mark
 
 Honestly, not the most satisfying box. The SQL injection was technically interesting but completely unworkable without sqlmap — time-based blind with one character at a time isn't something you'd want to do by hand. The motionEye RCE was clean, but going straight to root without a proper privilege escalation step felt a bit anticlimactic. I'm genuinely not sure if I skipped something or if that's just how the box is designed. Either way — flags captured, moving on.
 
-[Walkthrough](./Walkthrough)

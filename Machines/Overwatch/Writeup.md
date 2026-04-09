@@ -1,4 +1,5 @@
 # HTB — Overwatch Writeup
+[Here are the notes I took while solving](./Walkthrough)
 
 ## Recon
 

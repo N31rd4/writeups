@@ -1,4 +1,5 @@
 # HackTheBox: Facts Writeup
+[Here are the notes I took while solving](./Walkthrough)
 
 Welcome to my writeup for the HackTheBox machine **Facts**. This was a relatively simple box, but it still had a few interesting twists and turns that kept me engaged. Let’s dive into the journey!
 

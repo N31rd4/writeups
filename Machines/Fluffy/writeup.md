@@ -1,4 +1,5 @@
 # Fluffy (HackTheBox)
+[Here are the notes I took while solving](./walkthrough.txt)
 
 I landed on the target with the provided credentials j.fleischman:J0elTHEM4n1990! and started with a quick sweep to understand the exposed surface. Nmap immediately confirmed we were dealing with a Windows AD environment on a DC.
 

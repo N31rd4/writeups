@@ -1,5 +1,7 @@
 # HackTheBox Editor Writeup
 
+[Here are the notes I took while solving](./walkthrough)
+
 Welcome to my writeup for the HackTheBox "Editor" challenge! This was a fun and challenging box that tested my problem-solving skills and patience. Here's how I tackled it step by step.
 
 ---

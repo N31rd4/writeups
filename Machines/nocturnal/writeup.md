@@ -1,4 +1,5 @@
 # Nocturnal CTF Writeup  
+[Here are the notes I took while solving](./walkthrough)
 
 Welcome to my writeup for the Nocturnal CTF challenge on HackTheBox. I'll walk you through my thought process, the obstacles I faced, and how I ultimately conquered this box.  
 

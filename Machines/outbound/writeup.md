@@ -1,4 +1,5 @@
 # Outbound CTF Writeup
+[Here are the notes I took while solving](./walkthrough)
 
 Welcome to my writeup for the **Outbound** CTF! This was a fun and challenging box that required a mix of enumeration, exploitation, and privilege escalation. Let me walk you through my thought process and how I tackled each step.
 

@@ -1,4 +1,5 @@
 # Writeup: Exploiting a Grafana Instance and Privilege Escalation via Crontab-UI
+[Here are the notes I took while solving](./walkthrough)
 
 ## Introduction
 

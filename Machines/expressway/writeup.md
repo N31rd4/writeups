@@ -1,4 +1,5 @@
 # Expressway Writeup
+[Here are the notes I took while solving](./walkthrough)
 
 Welcome to my writeup for the HackTheBox machine **Expressway**. As the name suggests, this box was pretty straightforward, but it still had some interesting steps that I enjoyed exploring. Let me walk you through my thought process and the steps I took to root this machine.
 

@@ -1,5 +1,7 @@
 # Dog HTB Writeup
 
+[Here are the notes I took while solving](./walkthrough)
+
 Welcome to my writeup for the Dog HTB challenge! This box was a fun and educational experience that taught me the importance of thorough information gathering. I spent quite a bit of time stuck, thinking I had exhausted all possible sources of information, only to realize later that digging deeper into the repository would reveal the key to moving forward. Once I found the missing piece, the rest of the challenge unfolded smoothly—perhaps even too easily. Here's how it all went down.
 
 ---

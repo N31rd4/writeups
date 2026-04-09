@@ -1,4 +1,5 @@
 # Signed - HackTheBox Writeup
+[Here are the notes I took while solving](./walkthrough)
 
 ## Initial Reconnaissance
 

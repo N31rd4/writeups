@@ -1,5 +1,6 @@
 
 # HTB — Interpreter Writeup
+[Here are the notes I took while solving](./Walkthrough)
 
 > **Difficulty:** Medium | **OS:** Linux | **Rating:** 2.5/5 ⭐
 

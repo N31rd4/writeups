@@ -1,4 +1,5 @@
 # TombWatcher (HTB) – Professional Yet Chill Writeup
+[Here are the notes I took while solving](./walkthrough)
 
 I went into this Windows box with the provided user creds already in hand: `henry / H3nry_987TGV!`. From there it was all about layering AD abuse techniques and eventually diving into an AD CS (Certificate Services) misconfiguration (ESC15) to grab the crown. This was only my second Windows box, so a lot of the path felt like a milestone—especially the early privilege chaining up to user.
 
