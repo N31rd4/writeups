@@ -91,7 +91,9 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
 - [Secure Notes](./Challenges/Secure_Notes/Writeup.md)
 ![Secure Notes](./Challenges/Secure_Notes/header.webp)  
     *Overview*: Exploits a prototype pollution vulnerability in Mongoose (CVE-2023-3696) to achieve arbitrary code execution, bypasses access restrictions to retrieve the flag, and demonstrates advanced Node.js exploitation techniques.
-
+- [APKey](./Challenges/APKey/Writeup.md)
+![APKey](./Challenges/APKey/header.webp)  
+    *Overview*: Demonstrates Android reverse engineering techniques, including APK decompilation, alignment fixes, and cryptographic logic analysis to retrieve the flag.
 
 ### Disclaimer
 These writeups are for educational purposes only. Unauthorized use of these techniques on systems you do not own or have explicit permission to test is illegal.

@@ -1,0 +1,244 @@
+Bon en ce moment je me mets au reverse android, c'est mon premier challenge de cette session de training intensif 
+
+bon j'ai un apk et ce texte:
+
+Challenge Scenario
+
+This app contains some unique keys. Can you get one?
+
+Je commence par décompiler l'app,
+[neirda@neirda-xps159530 files]$ jadx -d decompiled APKey.apk 
+INFO  - loading ...
+INFO  - processing ...
+ERROR - finished with errors, count: 4                       
+
+j'ai pleins de classes incompréhensibles, et j'ai pas envie de trop me lancer dedans avant d'avoir visualisé l'app.
+
+je décide donc de l'installer
+
+adb install APKey.apk 
+Performing Streamed Install
+adb: failed to install APKey.apk: Failure [-124: Failed parse during installPackageLI: Targeting R+ (version 30 and above) requires the resources.arsc of installed APKs to be stored uncompressed and aligned on a 4-byte boundary]
+
+aille il y a des problèmes d'alignement, heureusement lors de mon training j'ai vu ça. 
+
+J'aligne
+~/Android/Sdk/build-tools/34.0.0/zipalign 4 ./APKey.apk ./APKaligned.apk
+
+puis je resigne:
+keytool -genkey -v -keystore ~/.android/htb.keystore -alias signkey -keyalg RSA -keysize 2048 -validity 20000
+~/Android/Sdk/build-tools/34.0.0/apksigner sign --ks ~/.android/htb.keystore ./APKaligned.apk 
+
+je peux enfin installer et voir l'app:
+adb install ./APKaligned.apk
+Performing Incremental Install
+Serving...
+All files should be loaded. Notifying the device.
+Success
+Install command complete in 273 ms
+
+(img src: sc/app.webp)
+
+Une interface de login, je connais ni mdp ni utilisateur, on va donc voir comment ça fonctionne dans une analyse statique du code source qu'on a extrait.
+
+J'ai appris que le point d'entrée c'était dans MainActivity (du moins ce qui est indiqué dans AndroidManifest)
+J'ouvres dans JADX GUI
+Je fais quelques rename par rapport aux elements qui sont visés (usernameEl, passwordEl, validateButton)
+android.widget.EditText r5 = r5.usernameEl     // Catch: java.lang.Exception -> L88
+android.text.Editable r5 = r5.getText()     // Catch: java.lang.Exception -> L88
+java.lang.String r5 = r5.toString()     // Catch: java.lang.Exception -> L88
+java.lang.String r0 = "admin"
+
+bon déjà on tombes sur le nom du login "admin"
+
+android.widget.EditText r5 = r5.passwordEl     // Catch: java.lang.Exception -> L88
+android.text.Editable r5 = r5.getText()     // Catch: java.lang.Exception -> L88
+java.lang.String r5 = r5.toString()     // Catch: java.lang.Exception -> L88
+java.lang.String r1 = "MD5"
+
+java.lang.String r1 = "a2a3d412e92d896134d9c9126d756f"
+boolean r5 = r5.equals(r1)     // Catch: java.lang.Exception -> L88
+
+Bon en gros un MDP store en MD5 qui donne ça: "a2a3d412e92d896134d9c9126d756f" mais bon c'est pas un MD5 connu
+
+en fait je me dis qu'a partir de là il y a 3 solutions:
+- Continuer de reverse pour essayer de trouver les clés
+- Modifier la string pour foutre mon propre mdp
+- hook l'app pour valider le mdp durant l'execution de l'app
+
+pleiiinn de solutions qui m'apprendraient des trucs nouveaux, la solution 3 me semble hors de portée pour moi pour l'instant
+La 2 semble être la plus simple pour moi, mais le but c'est de prendre de l'XP donc j'aimerais bien faire les deux strats
+
+
+Je fais la méthode de patching:
+Je décompile déjà le package avec apktools
+apktool d APKey_orig.apk
+je cherches ensuite l'endroit ou le MD5 du mdp est stocké dans le smali (smali/com/example/apkey/MainActivity$a.smali)
+je remplace le hash que je connais pas par le hash de Password123 42f749ade7f9e195bf475f37a44cafcb
+ligne 140
+:goto_1
+    const-string v1, "42f749ade7f9e195bf475f37a44cafcb"
+
+je recompresse
+apktool b
+I: Using Apktool 3.0.2-dirty on APKey_orig.apk with 8 threads
+I: Smaling smali folder into classes.dex...
+I: Building resources with aapt2...
+I: Building apk file...
+I: Importing unknown files...
+I: Built apk into: ./dist/APKey_orig.apk
+
+j'aligne
+~/Android/Sdk/build-tools/34.0.0/zipalign -v 4 dist/APKey_orig.apk ../APKey_repackage.apk
+
+puis je signe
+
+~/Android/Sdk/build-tools/34.0.0/apksigner sign --ks ~/.android/htb.keystore --ks-key-alias signkey ./APKey_repackage.apk 
+Keystore password for signer #1: 
+
+je réinstalle
+
+[neirda@neirda-xps159530 patching]$ adb install APKey_repackage.apk 
+* daemon not running; starting now at tcp:5037
+* daemon started successfully
+Performing Incremental Install
+Serving...
+All files should be loaded. Notifying the device.
+Success
+Install command complete in 160 ms
+
+et mtn le user admin devrais fonctionner avec le mdp Password123
+
+et ça MARCHE (img: sc/success.webp)
+
+C'est un flag qui s'affiche que je pourrais recopier a la main mais j'ai la flemme et ça me donne l'ocasion de tester la DEUXIEME PATH:
+essayer de trouver le code directement dans le binaire de l'app
+
+L56:
+    java.lang.String r1 = "a2a3d412e92d896134d9c9126d756f"
+    boolean r5 = r5.equals(r1)     // Catch: java.lang.Exception -> L88
+    if (r5 == 0) goto L7b
+    com.example.apkey.MainActivity r5 = com.example.apkey.MainActivity.this     // Catch: java.lang.Exception -> L88
+    android.content.Context r5 = r5.getApplicationContext()     // Catch: java.lang.Exception -> L88
+    com.example.apkey.MainActivity r0 = com.example.apkey.MainActivity.this     // Catch: java.lang.Exception -> L88
+    c.b.a.b r1 = r0.f3950e     // Catch: java.lang.Exception -> L88
+    c.b.a.g r0 = r0.f3951f     // Catch: java.lang.Exception -> L88
+    java.lang.String r0 = p069c.p073b.p074a.C0550g.m1990a()     // Catch: java.lang.Exception -> L88
+    java.lang.String r0 = p069c.p073b.p074a.C0545b.m1985a(r0)     // Catch: java.lang.Exception -> L88
+    r1 = 1
+    android.widget.Toast r5 = android.widget.Toast.makeText(r5, r0, r1)     // Catch: java.lang.Exception -> L88
+
+la string qu'on cherche est surement ici
+
+internet nous dit
+Toast.makeText(context, text, duration)
+donc c'est le deuxième paramètre que l'on cherche
+
+en activant "show inconsistant code" dans JADX-GUI j'arrive plus rapidement a acceder aux fonctions qui génèrent le flag
+
+toastMakeText = Toast.makeText(applicationContext, C0545b.fun1(C0550g.fun2()), 1);
+
+le texte est formé des fun1 et fun2 (que j'ai rename)
+
+fun 2 semble initialiser une longue string
+
+public static String fun2() {
+    StringBuilder sb = new StringBuilder();
+    ArrayList arrayList = new ArrayList();
+    arrayList.add("722gFc");
+    arrayList.add("n778Hk");
+    arrayList.add("jvC5bH");
+    arrayList.add("lSu6G6");
+    arrayList.add("HG36Hj");
+    arrayList.add("97y43E");
+    arrayList.add("kjHf5d");
+    arrayList.add("85tR5d");
+    arrayList.add("1UlBm2");
+    arrayList.add("kI94fD");
+    sb.append((String) arrayList.get(8));
+    sb.append(C0551h.m1992a());
+    sb.append(C0552i.m1993a());
+    sb.append(C0549f.m1989a());
+    sb.append(C0548e.m1988a());
+    ArrayList arrayList2 = new ArrayList();
+    arrayList2.add("ue7888");
+    arrayList2.add("6HxWkw");
+    arrayList2.add("gGhy77");
+    arrayList2.add("837gtG");
+    arrayList2.add("HyTg67");
+    arrayList2.add("GHR673");
+    arrayList2.add("ftr56r");
+    arrayList2.add("kikoi9");
+    arrayList2.add("kdoO0o");
+    arrayList2.add("2DabnR");
+    sb.append((String) arrayList2.get(9));
+    sb.append(C0546c.m1986a());
+    ArrayList arrayList3 = new ArrayList();
+    arrayList3.add("jH67k8");
+    arrayList3.add("8Huk89");
+    arrayList3.add("fr5GtE");
+    arrayList3.add("Hg5f6Y");
+    arrayList3.add("o0J8G5");
+    arrayList3.add("Wod2bk");
+    arrayList3.add("Yuu7Y5");
+    arrayList3.add("kI9ko0");
+    arrayList3.add("dS4Er5");
+    arrayList3.add("h93Fr5");
+    sb.append((String) arrayList3.get(5));
+    sb.append(C0547d.m1987a());
+    sb.append(C0544a.m1984a());
+    return sb.toString();
+
+il y a a chaque fois un array qui est formé puis un seul élément de cet array qui est ajouté a une string
+avec d'autres morceaux qui viennent de fonction différentes
+concentrons nous a regrouper les morceaux qui sont ecrit et rajoutés dirrectement dans cette fonction, on verra les autres plus tard
+
+"1UlBm2" + C0551h.m1992a() + C0552i.m1993a() + C0549f.m1989a() + C0548e.m1988a() + "2DabnR" + C0546c.m1986a() + "Wod2bk" + C0547d.m1987a() + C0544a.m1984a()
+
+bon maintenant on va se charger de découvrir les valeurs retours de ces mysterieuses fonctions
+
+la première donne ça
+
+public class C0551h {
+    /* JADX INFO: renamed from: a */
+    public static String m1992a() {
+        ArrayList arrayList = new ArrayList();
+        arrayList.add("8GGfdt");
+        arrayList.add("7654rF");
+        arrayList.add("09Hy24");
+        arrayList.add("56Gth6");
+        arrayList.add("hdgKj8");
+        arrayList.add("kdIdu8");
+        arrayList.add("kHtZuV");
+        arrayList.add("jHurf6");
+        arrayList.add("5tgfYt");
+        arrayList.add("kd9Iuy");
+        return (String) arrayList.get(6);
+    }
+}
+
+exactement comme le reste du code, bon bah c'est parti pour extraire manuellement les valeurs de chaque fonctions
+
+"1UlBm2" + "kHtZuV" + "rSE6qY" + "6HxWkw" + "HyeaX9" + "2DabnR" + "FlEGyL" + "Wod2bk" + "wAxcoc" + "85S94kFpV1"
+
+On a donc la fun2 qui retournerais:
+"1UlBm2kHtZuVrSE6qY6HxWkwHyeaX92DabnRFlEGyLWod2bkwAxcoc85S94kFpV1"
+
+cette valeure est passée en paramètre à la fun1:
+public static String fun1(String str) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException {
+    SecretKeySpec secretKeySpec = new SecretKeySpec((String.valueOf(C0551h.m1992a().charAt(0)) + String.valueOf(C0544a.m1984a().charAt(8)) + String.valueOf(C0548e.m1988a().charAt(5)) + String.valueOf(C0552i.m1993a().charAt(4)) + String.valueOf(C0551h.m1992a().charAt(1)).toLowerCase() + String.valueOf(C0551h.m1992a().charAt(4)) + String.valueOf(C0551h.m1992a().charAt(3)).toLowerCase() + String.valueOf(C0551h.m1992a().charAt(3)) + String.valueOf(C0551h.m1992a().charAt(0)) + String.valueOf(C0544a.m1984a().charAt(8)).toLowerCase() + String.valueOf(C0544a.m1984a().charAt(8)).toLowerCase() + String.valueOf(C0552i.m1993a().charAt(0)) + String.valueOf(C0546c.m1986a().charAt(3)).toLowerCase() + String.valueOf(C0549f.m1989a().charAt(3)) + String.valueOf(C0549f.m1989a().charAt(0)) + String.valueOf(C0546c.m1986a().charAt(0))).getBytes(), C0550g.m1991b());
+    Cipher cipher = Cipher.getInstance(C0550g.m1991b());
+    cipher.init(2, secretKeySpec);
+    return new String(cipher.doFinal(Base64.decode(str, 0)), "utf-8");
+}
+
+c'est en 3 partie, il y a une clé avec un algo de chiffrage, appliquée a ma string trouvée precedemment avec décodée en base64
+
+C'est un travail assez chiant a faire (sachant que j'ai déjà la clé avec l'autre méthode) et je ne penses pas que ça m'apprendrait grand chose
+
+j'éssaye vite fait de voir si il y a pas des tools de déobfuscation, ça pourrait m'apprendre à les utiliser, et si j'en trouves pas on va s'arrêter là pour cette path et laisser a d'autres personnes le plaisir de le faire
+
+TERMINÉ !
+
+Conclusion: Bon c'était mon premier challenge android, j'ai bien vu qu'il y avait beaucoup de solutions possible, j'ai pu explorer les bonnes.
+Mon entrainement théorique m'a permis rapidement d'identifier les étapes et la structure de l'APK, l'exercice restait simple je vais surement beaucoup plus galérer si ça se complexifie
