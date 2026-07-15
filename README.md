@@ -94,7 +94,9 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
 - [APKey](./Challenges/APKey/Writeup.md)
 ![APKey](./Challenges/APKey/header.webp)  
     *Overview*: Demonstrates Android reverse engineering techniques, including APK decompilation, alignment fixes, and cryptographic logic analysis to retrieve the flag.
-
+- [Arno](./Challenges/Arno/Writeup.md)  
+![Arno](./Challenges/Arno/header.webp)  
+    *Overview*: Explores Unity-based Android reverse engineering, including IL2CPP analysis, dynamic Frida instrumentation, and AES decryption to retrieve the flag.
 ### Disclaimer
 These writeups are for educational purposes only. Unauthorized use of these techniques on systems you do not own or have explicit permission to test is illegal.
 

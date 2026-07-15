@@ -1,0 +1,332 @@
+Ok on est sur le deuxième exo de cette série de training sur les app android
+
+Texte donné:
+Challenge Scenario
+
+Arno Dorian is known for his memorable quotes, but he also has a knack for letting his sharp tongue get him into trouble, often saying the wrong thing at the worst possible moments. Can you make him say the magic words?
+
+J'ai installé l'apk mais elle se ferme directement au lancement, hmmm peut-être qu'elle détecte la VM, on va passer a l'analyse du code pour en savoir plus
+
+je l'ouvres dans jadx-gui et en lisant le manifest je tombes sur
+
+<activity
+            android:theme="@style/BaseUnityGameActivityTheme"
+            android:name="com.unity3d.player.UnityPlayerGameActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="fullUser"
+            android:configChanges="fontScale|layoutDirection|density|smallestScreenSize|screenSize|uiMode|screenLayout|orientation|navigation|keyboardHidden|keyboard|touchscreen|locale|mnc|mcc"
+            android:hardwareAccelerated="false"
+            android:resizeableActivity="true">
+
+on est donc sur du jeu unity
+
+je regarde les logs et je vois des trucs bizarres lors du crash
+2026-07-13 18:21:45.593 11310-11329 CRASH                   com.android.chrome                   E  Tombstone written to: /storage/emulated/0/Android/data/com.Z4ki.Arno/files/tombstone_00
+
+je me rends compte rapidement que c'est une apk ARM il faut donc que je la fasse tourner sur mon tel perso en mode débuggage.
+c'est la première fois que je fais ça mais c'est pas compliqué
+(img: sc/homepage.webp)
+
+J'arrives donc sur une page avec une image de Assasin's creed unity, un bouton qui me permet de générer des citations, le texte de l'exo disait  Can you make him say the magic words? peut-être donc que le flag fait parti des citations.
+
+bref on se replonge dans JADX (peut-être qu'une analyse dynamique sera nécessaire mais il faudra que j'étudie avant pour faire ça)
+
+En cherchant dans quel fichier les quotes pourraient être stockées je tombes sur assets/bin/Data/data.unity3d beaucoup de posts en ligne semblent indiquer que c'est la localisation potentielles des differents assets du jeu DONT les lignes de dialogue.
+
+En recherchant comment extraire les données, je tombes sur deux apps AssetStudio et AssetRipper,
+le github du premier étant abandonné depuis longtemps je me tournes vers le second
+
+J'extraits les données mais je ne trouves rien d'intéressant
+
+il y a le libil2cpp.so a regarder oú il y aurait le code du jeu
+
+j'ai déjà il2cpp-dumper sur mon pc, il a besoin de global-metadata.dat que je retrouves rapidement et de la librairie mentionnée précédemment
+
+bon finalement la version sur mon pc marche pas, mais un site en ligne fait le meme job et j'arrive a tout recupérer
+
+J'ouvre tout ça dans ghidra je fait toutes les manips pour avoir le code le plus clair possible après je suis perdu
+
+je ne savais pas trop oú regarder mais je tombes rapidement sur une serie de fonctions FlagControl
+avec GetFlag / DecryptFlag et tout ça.
+
+Malheureusement j'ai vraiment du mal a les comprendre, quel est leur ordre d'execution, il n'y a aucune cross-reference, je comprends pas grand chose au code débuggé
+
+je vais donc tenter d'utiliser Frida pour la première fois
+
+Je commence à voir a droite et à gauche comment ça fonctionne, j'arrive a setup l'apk avec objection mais j'ai pas envie d'utiliser de l'IA pour realiser mon script
+Mon objectif parfait serait de retourner la valeur de retour de la fonction FlagControl.GetFlag() mais je n'ai aucune idée de quand est-ce qu'elle est apelée,
+je n'arrive pas a voir pour aucune des fonctions de FlagControl pour être honnête, mais étant donné que c'est la seule classe dans Assembly-CSharp je vais au moins essayer d'acceder a "ShowQuote()" qui est le même nom que le bouton que l'on appuies et "populateQuotes()"
+
+J'apprends donc les bases sur https://learnfrida.info
+
+Okay donc j'ai lu la partie Frida Basics, j'ai compris que ça fonctionnait a base de fichier js qui vont créer des hooks et qui vont permettre d'espionner et de modifier l'execution de l'application.
+après avoir lu tout ça je me dis que je n'ai peut être même pas besoin de savoir si c'est possible de call "GetFlag" et que frida pourrait le faire tout seul (de lancer la fonction), mais bon j'ai toujours rien lu sur le fait d'executer des fonctions arbitrairement et j'ai besoin de faire quelques petit tests pour tremper mes pieds dans l'eau du bain avant de plonger,
+
+première mission instrumenter et log: "ShowQuotes"
+apparement frida-trace permet de générer les fichiers js pour des instrumentations futures
+je me mets dans un dossier vierge
+J'ai déjà injecté "frida" dans l'app avec objection
+je forward les ports pour pouvoir se connecter depuis mon pc frida listen sur ce port
+adb forward tcp:27042 tcp:27042
+maintenant toutes mes requetes vont aller directement vers mon tel
+une fois l'app lancée sur mon tel je l'apperçois depuis frida:
+frida-ps -H 127.0.0.1:27042
+  PID  Name
+-----  ------
+25739  Gadget
+
+c'est le moment de tenter le frida-trace que j'ai vu sur le site
+frida-trace -H 127.0.0.1:27042 -i 'ShowQuote' Gadget
+Started tracing 0 functions. Web UI available at http://localhost:37939/
+Connection terminated
+
+Malheureusement l'app crash dès que je lance le tracer
+
+après beauuuucoup de galère a débug et l'aide de chatgpt je me suis redu compte que objection avait introduit 2 balises clinit dans le fichier smali, l'app a perdu la trace de l'entrypoint original et il a fallu fusioner les deux pour activer frida
+
+avant:
+
+.method static constructor <clinit>()V
+   .locals 1
+
+   .prologue
+   const-string v0, "frida-gadget"
+
+   invoke-static {v0}, Ljava/lang/System;->loadLibrary(Ljava/lang/String;)V
+
+   return-void
+.end method
+.method public static synthetic $r8$lambda$nRsxByo9omKAXvDR6c9h055CzT4(Lcom/unity3d/player/UnityPlayerGameActivity;Landroid/view/SurfaceView;)V
+    .locals 0
+
+    invoke-direct {p0, p1}, Lcom/unity3d/player/UnityPlayerGameActivity;->lambda$applyInsetListener$0(Landroid/view/SurfaceView;)V
+
+    return-void
+.end method
+
+.method static constructor <clinit>()V
+    .locals 1
+
+    .line 30
+    const-string v0, "game"
+
+    invoke-static {v0}, Ljava/lang/System;->loadLibrary(Ljava/lang/String;)V
+
+    return-void
+.end method
+
+
+après:
+
+# direct methods
+.method public static synthetic $r8$lambda$nRsxByo9omKAXvDR6c9h055CzT4(Lcom/unity3d/player/UnityPlayerGameActivity;Landroid/view/SurfaceView;)V
+    .locals 0
+
+    invoke-direct {p0, p1}, Lcom/unity3d/player/UnityPlayerGameActivity;->lambda$applyInsetListener$0(Landroid/view/SurfaceView;)V
+
+    return-void
+.end method
+
+.method static constructor <clinit>()V
+    .locals 1
+
+    .line 30
+    const-string v0, "game"
+
+    invoke-static {v0}, Ljava/lang/System;->loadLibrary(Ljava/lang/String;)V
+
+    const-string v0, "frida-gadget"
+
+    invoke-static {v0}, Ljava/lang/System;->loadLibrary(Ljava/lang/String;)V
+
+    return-void
+.end method
+
+
+bon maintenant j'arrive a lancer frida-trace, mais bon je trace pas grand chose
+frida-trace -H 127.0.0.1:27042 -i 'ShowQuote' Gadget
+
+je comprends rapidement que c'est pas nommé dans le binaire, mais heureusement ilspy me donne l'offset et je peux travailler a partir de ça:
+
+using Il2CppDummyDll;
+
+[Token(Token = "0x6000002")]
+[Address(RVA = "0x16D1740", Offset = "0x16D0740", VA = "0x16D1740")]
+public void ShowQuote()
+{
+}
+
+je fais donc 
+frida-trace -H 127.0.0.1:27042 -a 'libil2cpp.so!0x16D0740' Gadget
+et ça me crée un gadget, je tentes de voir si il fonctionne bien (il devrait log a chaque fois que je pousse le bouton en théorie)
+
+non ça ne fait rien
+
+en utilisant la valeur RVA ça FONCTIONNE !
+frida-trace -H 127.0.0.1:27042 -a 'libil2cpp.so!0x16D1740' Gadget
+  2135 ms  sub_16d1740()
+  2938 ms  sub_16d1740()
+
+en essayant de comprendre, j'ai vu que la RVA correspondait à l'offset une fois chargée en memoire alors que ce qui est marqué comme "va" concerne juste l'offset dans le fichier.
+Vu qu'on cherche a débug on va donc chercher l'offset memoire
+
+mission NUMERO 1 REUSSIE
+
+Ok maintenant je dois chercher une manière de forcer l'execution d'une fonction:
+la fonction que je cherche est GetFlag (qui retourne des byte[] surement une string avec le flag) et qui est située en RVA 0x16D1918 selon ilspy
+
+je vais essayer de modifier l'handler qui a été créé pour le showquote pour qu'il execute la fonction GetFlag (l'offset) lorsque j'appuie sur le bouton, et qu'il retourne la valeur de retour, je vais tenter de chercher ça sans ia pour pas qu'on me mache le travail 
+
+https://learnfrida.info/intermediate_usage/#creating-nativefunctions
+
+le livre d'apprentisage de frida que j'avais lu parle de 
+
+It is possible to use NativeFunctions to create auxiliary functions we can call from JavaScript. This is useful in case that we want to call exports for our own sake or use the process's functions at will.
+
+après beauccouuupp d'essais (et un peu d'aide de l'ia pour comprendre l'encodage du retour) je suis arrivé a ce code:
+defineHandler({
+    onEnter(log, args) {
+        const GetFlagAddr = Process.getModuleByName('libil2cpp.so').base.add('0x16d1918')
+        // log(GetFlagAddr)
+        const GetFlag = new NativeFunction(GetFlagAddr, 'pointer', ['pointer', 'pointer']);
+        let retvalue = GetFlag(args[0], ptr(0))
+        const length = retvalue.add(0x18).readU32();
+        log('length = ' + length); // devrait afficher 48 (0x30)
+
+        const dataPtr = retvalue.add(0x20);
+        const bytes = dataPtr.readByteArray(length)!;
+        log(hexdump(bytes));
+
+        const arr = new Uint8Array(bytes);
+        const str = Array.from(arr).map(b => String.fromCharCode(b)).join('');
+        log('as string: ' + str);
+    },
+
+    onLeave(log, retval) {
+    }
+});
+
+en suivant l'encodage de byte array Il2CppArray<byte> et selon la norme
++0x00: Il2CppClass* klass       (8 bytes)
++0x08: monitor                  (8 bytes)
++0x10: bounds                   (8 bytes, souvent NULL)
++0x18: max_length / length      (8 bytes, mais souvent stocké comme uint32 dans les 4 premiers bytes)
++0x20: data[0]                  ← début des vrais bytes
+
+la valeur en 0x18 devrait être de 48 et effectivement c'est le cas DONC j'ai bien reussi a call la fonction GetFlag() MAIS en fait ce n'est pas la fonction finale, elle me donne juste la version chiffrée qui est codée
+
+la vraie fonction est donc surement DecryptFlag()
+
+[Token(Token = "0x6000007")]
+[Address(RVA = "0x16D1988", Offset = "0x16D0988", VA = "0x16D1988")]
+public string DecryptFlag(byte[] key, byte[] iv, byte[] encryptedData)
+{
+    return null;
+}
+
+il faut que je vérifie si il y a pas une fonction qui fait toutes les étapes sinon on vas appeler tout ça a la main
+
+Flag chiffré:
+           0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  0123456789ABCDEF
+00000000  13 eb f3 95 3a 9b 8c 13 c6 e5 47 1f 7e ea a0 17  ....:.....G.~...
+00000010  4b 6c 1f ac 41 80 20 02 da 16 eb 32 fa 88 f6 3c  Kl..A. ....2...<
+00000020  57 01 85 a8 bc 21 8d 9e f3 ac 03 e2 18 d3 0c 55  W....!.........U
+
+ok bon en refactorant le code je penses que l'on peut extraire le flag facilement (par contre je trouves ça vachement dur pour un exercice soit-disant facile)
+
+
+j'ai réussis a extraire les valeurs des 3 parties qui me fallaient pour l'aes decrypt et j'ai réussi à les rentrer avec succès dans Cyberchef et donc j'ai eu le flag (img: sc/flag.webp)
+
+avec ce script:
+
+function retreiveDataFromFun(arg0 : NativePointerValue, RVA: string, log: LogHandler ) {
+    const GetFlagAddr = Process.getModuleByName('libil2cpp.so').base.add(RVA)
+    const GetFlag = new NativeFunction(GetFlagAddr, 'pointer', ['pointer', 'pointer']);
+    let retvalue = GetFlag(arg0, ptr(0))
+    const length = retvalue.add(0x18).readU32();
+    log('length = ' + length); // devrait afficher 48 (0x30)
+    const dataPtr = retvalue.add(0x20);
+    const bytes = dataPtr.readByteArray(length)!;
+    log(hexdump(bytes));
+    return retvalue
+    // return bytes
+}
+
+defineHandler({
+    onEnter(log, args) {
+        const GetFlagAddr = '0x16d1918'
+        const GetIvAddr = '0x16D18A8'
+        const GetKeyAddr = '0x16D1838'
+        const DecryptFlagAddr = '0x16D1988'
+        const Flag = retreiveDataFromFun(args[0], GetFlagAddr, log)
+        const Iv = retreiveDataFromFun(args[0], GetIvAddr, log)
+        const Key = retreiveDataFromFun(args[0], GetKeyAddr, log)
+        log('Flag', Flag)
+        log('IV', Iv)
+        log('Key', Key)
+        const DecryptFlag = new NativeFunction(Process.getModuleByName('libil2cpp.so').base.add(DecryptFlagAddr), 'pointer', ['pointer', 'pointer', 'pointer']);
+        // const decryptedFlag = DecryptFlag(Key, Iv, Flag)
+        // log(decryptedFlag.add(0x14).readCString())
+    },
+
+    onLeave(log, retval) {function retreiveDataFromFun(arg0 : NativePointerValue, RVA: string, log: LogHandler ) {
+    const GetFlagAddr = Process.getModuleByName('libil2cpp.so').base.add(RVA)
+    const GetFlag = new NativeFunction(GetFlagAddr, 'pointer', ['pointer', 'pointer']);
+    let retvalue = GetFlag(arg0, ptr(0))
+    return retvalue
+}
+
+defineHandler({
+    onEnter(log, args) {
+        const GetFlagAddr = '0x16d1918'
+        const GetIvAddr = '0x16D18A8'
+        const GetKeyAddr = '0x16D1838'
+        const DecryptFl…lagAddr, log)
+        const Iv = retreiveDataFromFun(args[0], GetIvAddr, log)
+        const Key = retreiveDataFromFun(args[0], GetKeyAddr, log)
+        const DecryptFlag = new NativeFunction(Process.getModuleByName('libil2cpp.so').base.add(DecryptFlagAddr), 'pointer', ['pointer', 'pointer', 'pointer', 'pointer', 'pointer']);
+        const decryptedFlag = DecryptFlag(args[0], Key, Iv, Flag, ptr(0))
+        log(decryptedFlag.add(0x14).readUtf16String())
+    },
+
+    onLeave(log, retval) {
+    }
+});
+    }
+});
+
+mais je suis un peu frustré car j'aurais voulu avoir les résultats directement depuis la fonction, j'essaye donc de voir ce qui va mal et je m'en rends rapidement compte:
+LES PARAMETRES CACHÉS (this et method), après avoir tout remis en me reposant sur ghidra et nettoyé un peu le code, j'obtiens:
+
+function retreiveDataFromFun(arg0 : NativePointerValue, RVA: string, log: LogHandler ) {
+    const GetFlagAddr = Process.getModuleByName('libil2cpp.so').base.add(RVA)
+    const GetFlag = new NativeFunction(GetFlagAddr, 'pointer', ['pointer', 'pointer']);
+    let retvalue = GetFlag(arg0, ptr(0))
+    return retvalue
+}
+
+defineHandler({
+    onEnter(log, args) {
+        const GetFlagAddr = '0x16d1918'
+        const GetIvAddr = '0x16D18A8'
+        const GetKeyAddr = '0x16D1838'
+        const DecryptFlagAddr = '0x16D1988'
+        const Flag = retreiveDataFromFun(args[0], GetFlagAddr, log)
+        const Iv = retreiveDataFromFun(args[0], GetIvAddr, log)
+        const Key = retreiveDataFromFun(args[0], GetKeyAddr, log)
+        const DecryptFlag = new NativeFunction(Process.getModuleByName('libil2cpp.so').base.add(DecryptFlagAddr), 'pointer', ['pointer', 'pointer', 'pointer', 'pointer', 'pointer']);
+        const decryptedFlag = DecryptFlag(args[0], Key, Iv, Flag, ptr(0))
+        log(decryptedFlag.add(0x14).readUtf16String())
+    },
+
+    onLeave(log, retval) {
+    }
+});
+
+qui me donne direct le bon resultat
+
+FINIS !
+
+Conclusion: j'ai adoré le faire, j'ai pas pu me détacher de mon pc, j'ai appris tellement, que ce soit dans les differentes étapes de décompilation ou alors dans la gestion des apps unity. Mais par dessus tout J'AI PU ENFIN FAIRE DE l'ANALYSE DYNAMIQUE, j'ai adoré pouvoir acceder aux fonctions cachées de l'app et pouvoir tout modifier, ça donne un grand sentiment de puissance. J'ai hate d'approfondire avec frida car je penses que je peux faire mieux que seulement utiliser frida-trace. De manière générale ce challenge est considéré comme "facile" et je le trouves vachement dur pour du facile, pour moi c'est du moyen, après c'est surement car je suis débutant. Je vais aller tout de suite voir sur internet si il y avait pas un autre moyen que je n'ai pas compris. En tout cas un vrai kiff et un bon exo pour commencer avec frida
