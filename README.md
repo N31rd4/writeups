@@ -97,6 +97,9 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
 - [Arno](./Challenges/Arno/Writeup.md)  
 ![Arno](./Challenges/Arno/header.webp)  
     *Overview*: Explores Unity-based Android reverse engineering, including IL2CPP analysis, dynamic Frida instrumentation, and AES decryption to retrieve the flag.
+- [Jigsaw](./Challenges/Jigsaw/Writeup.md)  
+![Jigsaw](./Challenges/Jigsaw/header.webp)  
+    *Overview*: Explores Flutter-based Adroid reverse engineering, and reconstruct decrypt function from pieces of code scattered all throughout the apk.
 ### Disclaimer
 These writeups are for educational purposes only. Unauthorized use of these techniques on systems you do not own or have explicit permission to test is illegal.
 
