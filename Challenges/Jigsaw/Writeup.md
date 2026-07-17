@@ -1,220 +1,187 @@
-3ème exercice de cette formation en reverse engineering android:
-j'ai un apk et un texte qui me dit:
-Challenge Scenario
+# Jigsaw - CTF Writeup
 
-A secret lies hidden, protected by layers of logic and scattered clues. Your task is to uncover these fragments, piece them together, and solve the mystery. It’s a challenge of patience, creativity, and determination. Can you reveal the secret?
+This is the third exercise of this Android reverse engineering training, and the target is an APK styled as a challenge with a cryptic scenario. 
 
-je commence par le classique
+> *Challenge Scenario*
+> 
+> *A secret lies hidden, protected by layers of logic and scattered clues. Your task is to uncover these fragments, piece them together, and solve the mystery. It’s a challenge of patience, creativity, and determination. Can you reveal the secret?*
+
+Here is the journey of how I navigated through the logic, bypassed the baits, and reconstructed the cryptographic pieces to get the flag.
+
+---
+
+## First Contact: Reconnaissance
+
+To kick things off, I initiated the analysis using the classic decompiler tool:
+
+```bash
 apktool d ./Jigsaw.apk
+```
 
-je vois qu'il y a beaucoup de classes
-dans le manifest je vois qu'on est sur du flutter "io.flutter"
+Right off the bat, digging into the decompiled structure, the `AndroidManifest.xml` revealed that this application was built using the Flutter framework:
+
+```xml
 <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme"/>
-J'ai jamais fait de reverse sur du flutter, je ne sais pas encore si c'est bien different que du vanilla
+```
 
-il y a les libs dans du arm et du x86, on va donc pouvoir utiliser une vm ça m'arrange
-installons donc l'apk pour voir.
+I had never reversed a Flutter application before, so this was a great opportunity to learn how different it is from traditional native Android apps. 
 
-il ne semble pas vouloir se lancer dans mon AVD, il crash a l'ouverture
-les logs disent
+The APK shipped with both ARM and x86 libraries, meaning I could theoretically test it inside an Android Virtual Device (AVD). However, attempting to spin it up in my emulator resulted in an immediate crash. The logcat output explained why:
+
+```
 java.lang.RuntimeException: Unable to start activity ComponentInfo{com.example.menascyber/com.example.menascyber.MainActivity}: java.lang.RuntimeException: java.util.concurrent.ExecutionException: java.lang.UnsatisfiedLinkError: dlopen failed: "/data/data/com.example.menascyber/app_lib/libflutter.so" is for EM_AARCH64 (183) instead of EM_X86_64 (62)
-problème avec x86 finalement, on va donc faire ça sur le téléphone.
+```
 
-j'ouvre l'app je me retrouves avec un formulaire Username Password, un bouton login, en haut a gauche il y a une banderolle rouge avec marqué "debug", et quand j'appuis sur login avec du texte aléatoire un message apparait: "crack me and find the flag" (img: sc/app.wepb)
+Due to this architecture mismatch with the x86_64 emulator, I decided to switch directly to my physical phone instead.
 
-plusieures notes:
-1. l'objectif semble être de passer ce login
-2. je ne sais pas si c'est important de trouver le vrai login et mdp ou alors si bypass la verification suffie
-3. la banderolle debug laisse peut être sous-entendre un mécanisme de détection du mode débug et donc un comportement différent
+On my phone, the application launched successfully, displaying a login screen asking for a Username and a Password. There was a bright red "debug" banner in the top-right corner. Attempting to sign in with random input popped up a basic message: `"crack me and find the flag"`.
+![homepage](sc/app.webp)
 
-intrigué par la question 3 j'eteins complettement l'aplication, je sort du mode débugage dans les paramètres et je relance l'application normalement. Et non il est toujours là, c'est donc surement pour faire le RolePlay d'une application pas encore sortie qu'on aurait a tester, rien d'important donc
+Several questions immediately came to mind:
+1. Is my main objective to bypass this login block?
+2. Do I need to find the correct credentials, or will a simple check bypass suffice?
+3. Does the "debug" banner imply some presence of anti-debugging or environment detection that alters behavior?
 
-le manifest nous donne le point d'entrée
+To answer the third point, I closed the app, disabled developer mode on my device, and restarted it. The debug banner was still there. It became clear that this was not dynamic environment detection, but likely a hardcoded artifact or standard Flutter debug configuration.
+
+---
+
+## Diving Into the Native Code
+
+The `AndroidManifest.xml` pointed to the default main activity:
+
+```xml
 android:name="com.example.menascyber.MainActivity"
+```
 
-rien de bien interressant, d'autant plus que les données interressantes semblent être dans "libapp.so",
-un programme nommé blutter semble pouvoir faciliter la décompilation mais il à l'air chiant a installer donc je vais tenter d'y aller avec ghidra direct.
+Nothing particularly crazy stood out there. Usually, in production Flutter applications, the logical meat resides inside a library called `libapp.so`. However, looking at the libs folder, the only compiled custom library hosted inside this build was `libmenascyber.so`. I loaded the ARM version into Ghidra.
 
-je penses que quand ils disent "libapp.so" il parlent du nom de l'app donc "libmenascyber.so" dans mon cas, en tout cas c'est la seule que j'ai trouvé donc je l'ouvre dans ghidra (en version arm pour commencer, car l'app a seulement fonctionnée sur mon tel)
+Unfortunately, static analysis of `libmenascyber.so` via Ghidra yielded no direct clues. I decided to patch the APK using Objection to see if I could intercept traffic or hook actions dynamically, but Frida hooks did not trigger anything useful either.
 
-je trouves rien d'interressant dans ces libs sur ghidra.
+Searching for how Flutter handles its execution logic led me to a crucial discovery inside the extracted filesystem: `assets/flutter_assets/kernel_blob.bin`. 
 
-je vais voir si en le lancant avec frida j'aurais plus d'infos,
-je le patch avec objection puis je le reinstalle
-mais bon je ne trouves toujours rien d'interressant.
+StackOverflow provided the explanation:
 
-en recherchant d'autres infos sur les projets flutter on me parle d'un ../decompiled/Jigsaw/assets/flutter_assets/kernel_blob.bin kernel_blob.bin
+> *This file is a Dart kernel bytecode representation of your app's code generated by a compiler in Flutter's toolchain... During a debug compile, the tool compiles source to Dart kernel bytecode, containing the AST logic.*
 
-stackoverflow me dit
-https://stackoverflow.com/questions/53368586/what-is-flutters-kernel-blob-bin
+And another crucial tip:
 
-The short answer is that this file is a Dart kernel bytecode representation of your app's code generated by a compiler in Flutter's toolchain. When your Dart code changes, you should expect the built kernel_blob.bin to also change.
+> *In debug mode, the APK includes a Dart kernel blob (often named kernel_blob.bin), and the Flutter engine uses a Dart VM with JIT. This file can be analyzed to retrieve almost the entire Dart code in a semi-readable form. Release mode, by contrast, AOT-compiles everything directly to libapp.so.*
 
-In a bit more detail, the flutter tool is responsible for managing the build pipeline for your Flutter app. Since your example is an iOS example, I'll describe an iOS build. During a compile via flutter build, the tool does the following:
+This explained the persistent "debug" banner! We were working on a debug build, meaning the whole logic was waiting for us inside this kernel file.
 
-    Compile source to Dart kernel bytecode: the flutter tool locates your app's main entry point (by default lib/main.dart) and hands it to the Dart kernel compiler. The kernel compiler traverses the import graph, and emits kernel bytecode to kernel_blob.bin.
+---
 
-une autre page me dit:
+## Sifting Through the Kernel Blob
 
-Debug vs Release Build Differences: It’s worth noting the contrast with a debug build of Flutter. In a debug mode build, the APK includes a Dart kernel blob (an intermediate form of the code) in assets/flutter_assets (often named kernel_blob.bin), and the Flutter engine uses a Dart VM with JIT. That kernel file can be analyzed to retrieve almost the entire Dart code in a semi-readable form (similar to an AST). So if someone decompiled a debug APK, they would indeed find most of the Dart code in plain form. Release mode, by contrast, does not include this kernel file or a Dart VM—everything is AOT-compiled into libapp.so​
+Opening the kernel blob, I started finding huge chunks of readable Dart code. Around line 684,000, I found a promising snippet:
 
-cela explique tout, la banderolle debug venait de là
-
-je me rends compte qu'il y a carément du code écrit en clair dans le fichier, je tombes par exemple sur un 
-
-  void _login() {
+```dart
+void _login() {
     // Check if the username and password are correct
-    if (_usernameController.text == 'nimda' && _passwordController.text == 'guessme') {
+    if (_usernameController.text == 'nimda' && _passwordController.text == 'guessme') { ... }
+}
+```
 
-mais bon par la suite dans le code je vois
+However, looking slightly further down in the logic, I spotted the trap:
 
-            Image.asset(
-              'assets/images/laughing.png', // Ensure you have this image in your assets folder
-              width: 150,
-              height: 150,
-            ),
-            SizedBox(height: 20),
-            Text(
-              'Sorry, no flag here.',
+```dart
+Image.asset(
+    'assets/images/laughing.png',
+    width: 150,
+    height: 150,
+),
+SizedBox(height: 20),
+Text(
+    'Sorry, no flag here.',
+)
+```
 
-je vais rentrer le mdp quand même mais je tiens a dire QUE JE NE ME SUIS PAS FAIT BAIT CHEH
+Even though I knew it was a bait, I entered the credentials anyway just to verify, and yes—I got clowned by the application. 
 
+Continuing down the file around line 684,455, I hit the jackpot: a class named `Finally`.
 
-ligne 684455
-
-mport 'dart:typed_data';
+```dart
+import 'dart:typed_data';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:jigsaw/services.dart'; // Import the file containing AESCombinedService
 
 class Finally {
+    final String _encryptedFlagBase64 = 'aZ/KF0GsnN81j5XStQyKz3vXtktTVN5zFqy5lwTmub6fx5w70c+p08O0OWcn/9nh';
 
-  final String _encryptedFlagBase64 = 'aZ/KF0GsnN81j5XStQyKz3vXtktTVN5zFqy5lwTmub6fx5w70c+p08O0OWcn/9nh';
+    Future<String> decryptFlag() async {
+        final aesService = AESCombinedService();
+        final flagData = await aesService.getflag();
 
-
-  Future<String> decryptFlag() async {
-
-
-
+        final encryptedFlagBytes = _base64ToBytes(_encryptedFlagBase64);
+        final key = Uint8List.fromList(flagData['key']!);
+        final iv = Uint8List.fromList(flagData['iv']!);
     
-   
-    final aesService = AESCombinedService();
-    final flagData = await aesService.getflag();
+        final encryptKey = encrypt.Key(key);
+        final encryptIV = encrypt.IV(iv);
 
-    
-    final encryptedFlagBytes = _base64ToBytes(_encryptedFlagBase64);
+        final encrypter = encrypt.Encrypter(encrypt.AES(encryptKey, mode: encrypt.AESMode.cbc));
 
-    
-    final key = Uint8List.fromList(flagData['key']!);
-    final iv = Uint8List.fromList(flagData['iv']!);
- 
-
-  
-   
-    final encryptKey = encrypt.Key(key);
-
-    final encryptIV = encrypt.IV(iv);
-
-
-
-    final encrypter = encrypt.Encrypter(encrypt.AES(encryptKey, mode: encrypt.AESMode.cbc));
-
-    final decrypted = encrypter.decrypt(
-      encrypt.Encrypted.fromBase64(_encryptedFlagBase64),
-      iv: encryptIV,
-    );
-    
-
-  
-    
-    
-    //return decrypted;
-
-    
-
-    
-     String message = "Developer forgot to uncomment";
-
-
-     return  message;
-
-
-  }
-
-
-
-
- // Helper function to convert base64 string to bytes
-  List<int> _base64ToBytes(String base64) {
-    final bytes = base64Decode(base64);
-    return bytes;
-  }
-
-
-  String bytesToHex(Uint8List bytes) {
-  final buffer = StringBuffer();
-  for (var byte in bytes) {
-    buffer.write(byte.toRadixString(16).padLeft(2, '0'));
-  }
-  return buffer.toString();
-}
-}
-
-on a clairement le flag et des fonctions de déchiffrage (aes)
-on peut tenter de tout retrouver dans le code OU 
-chercher ou est ce que sont appelés ces fonction
-
-ligne 684569
-fetchAndDecryptFlag
-
- Future<void> fetchAndDecryptFlag() async {
-    try {
-
-      final finallyClass = Finally();
-      final decryptedFlag = await finallyClass.decryptFlag();
-     
-    } catch (e) {
-      
+        final decrypted = encrypter.decrypt(
+            encrypt.Encrypted.fromBase64(_encryptedFlagBase64),
+            iv: encryptIV,
+        );
+        
+        //return decrypted;
+        String message = "Developer forgot to uncomment";
+        return message;
     }
-  }
 
-malheureusement cette fonction est appelée nulle part, mais puis-je modifier le fichier pour patch et la rendre utile ?
+    // Helper function to convert base64 string to bytes
+    List<int> _base64ToBytes(String base64) {
+        final bytes = base64Decode(base64);
+        return bytes;
+    }
+}
+```
 
-claude m'a expliqué que en mode débug dart exposait une console ou je ne sais quoi, et effectivement
+The app developers left the decryption routing in place but modified the output response to a generic developer warning string. 
 
+Further down at line 684,569, a function called `fetchAndDecryptFlag` was declared:
+
+```dart
+Future<void> fetchAndDecryptFlag() async {
+    try {
+        final finallyClass = Finally();
+        final decryptedFlag = await finallyClass.decryptFlag();
+    } catch (e) {
+        // ...
+    }
+}
+```
+
+This helper function wasn't called anywhere in the executable path.
+
+---
+
+## Attempting Runtime Hijacking
+
+Since this was running a debug Flutter instance, I queried device logs to see if a debugging VM port was actively exposed:
+
+```bash
 adb logcat | grep -i "listening on"
-07-16 16:17:43.834 26904 26934 I Frida   : Listening on 127.0.0.1 TCP port 27042
-07-16 16:20:52.544 29062 29094 I Frida   : Listening on 127.0.0.1 TCP port 27042
-07-16 16:21:07.624 29062 29168 I flutter : The Dart VM service is listening on http://127.0.0.1:45993/GoK1OvfCFEs=/
+```
 
-ok je peux activer une page web avec "dart devtools"
+The target output confirmed it:
+`07-16 16:21:07.624 29062 29168 I flutter : The Dart VM service is listening on http://127.0.0.1:45993/GoK1OvfCFEs=/`
 
-j'ai accès ici a tout le code source d'une manière bien plus claire, mais bon je vois toujours pas comment acceder a la fonction, d'autant plus qu'ils ont fait en sort que decrypt retourne même pas la valeur du flag
+I forwarded the port and launched `dart devtools` to inspect the program's live memory hierarchy. While I succeeded in mapping the classes, setting breakpoints dynamically within the VM service consistently crashed the application. 
 
-par contre je vois que je peux poser des points d'arrets, peut être interressant.
-Bon au final ça fait juste crash l'app.
-Tout porte a croire qu'ils veulent que je lise le code et que je déchiffre a la main, mais bon j'ai la flemme de ça, je vais vraiment essayer de détourner la fonction
+Instead of forcing a live hook script to work on an unstable VM context, I chose to statically analyze the decryption procedure and rebuild the logic externally using Python.
 
-Bon après de multiples recherches c'est super compliqué en mode débug, donc bon on va analyser le code:
+---
 
-final String _encryptedFlagBase64 = 'aZ/KF0GsnN81j5XStQyKz3vXtktTVN5zFqy5lwTmub6fx5w70c+p08O0OWcn/9nh';
+## The Master Cryptographic Key Structure
 
+The final key is assembled from three separate operations (`partone`, `parttwo`, and `partthree`), pulling slices of keys and Initialization Vectors (IVs) to form a combined 32-byte AES key and 16-byte IV block:
 
-on a le flag chiffré ici et en base 64 ici
-
-final key = Uint8List.fromList(flagData['key']!);
-final iv = Uint8List.fromList(flagData['iv']!);
-
-final encryptKey = encrypt.Key(key);
-final encryptIV = encrypt.IV(iv);
-final encrypter = encrypt.Encrypter(encrypt.AES(encryptKey, mode: encrypt.AESMode.cbc));
-final decrypted = encrypter.decrypt(
-encrypt.Encrypted.fromBase64(_encryptedFlagBase64),
-iv: encryptIV,
-);
-
-il faut récuperer la clé et l'IV de l'AES en mode CBC
-
- Future<Map<String, List<int>>> getflag() async {
+```dart
+Future<Map<String, List<int>>> getflag() async {
     final partoneData = await partone();
     final parttwoData = await _aesService.getparttwo();
     final partthreeKey = _nativeLib.getAESKey();
@@ -222,59 +189,64 @@ il faut récuperer la clé et l'IV de l'AES en mode CBC
 
     // Combine and slice the key and IV from each part
     final combinedKey = [
-      ...partoneData['key']!.sublist(0, 8),
-      ...parttwoData['key']!.sublist(0, 8),
-      ...partthreeKey.sublist(0, 16)
+        ...partoneData['key']!.sublist(0, 8),
+        ...parttwoData['key']!.sublist(0, 8),
+        ...partthreeKey.sublist(0, 16)
     ];
 
     final combinedIV = [
-      ...partoneData['iv']!.sublist(0, 4),
-      ...parttwoData['iv']!.sublist(0, 4),
-      ...partthreeIV.sublist(0, 8)
+        ...partoneData['iv']!.sublist(0, 4),
+        ...parttwoData['iv']!.sublist(0, 4),
+        ...partthreeIV.sublist(0, 8)
     ];
 
     return {
-      "key": combinedKey,
-      "iv": combinedIV,
+        "key": combinedKey,
+        "iv": combinedIV,
     };
-  }
+}
+```
+
+Let's dissect each of the three layers.
+
+### Part One: The Dart Shuffler
+
+Looking at how Part One handles its initialization:
+
+```dart
+Future<Map<String, List<int>>> partone() async {
+    final shuffledKey = _deterministicShuffle(_hardcodedKey, 5);
+    final shuffledIV = _deterministicShuffle(_hardcodedIV, 3);
+    //...
 }
 
-Future<Map<String, List<int>>> partone() async {
-// Shuffle the key and IV deterministically
-final shuffledKey = _deterministicShuffle(_hardcodedKey, 5);
-final shuffledIV = _deterministicShuffle(_hardcodedIV, 3);
-
 List<int> _deterministicShuffle(List<int> input, int shift) {
-return List<int>.generate(input.length, (i) {
-return input[(i + shift) % input.length];
-});
+    return List<int>.generate(input.length, (i) {
+        return input[(i + shift) % input.length];
+    });
 }
 
 _hardcodedKey = List<int>.generate(32, (i) => (i + 1) % 256);
 _hardcodedIV = List<int>.generate(16, (i) => (i + 10) % 256);
+```
 
+This represents clear mathematical loops:
+- `_hardcodedKey` generates a sequence from `1` to `32`.
+- `_hardcodedIV` generates a sequence from `10` to `25`.
+- This array undergoes a deterministic index rotation by `5` and `3` places respectively.
 
-on a tout pour la partOne
+### Part Two: The Native Android Gateway
 
-  static const platform = MethodChannel('parttwo');
+Part Two requests data through a Flutter MethodChannel:
 
-  Future<Map<String, List<int>>> getparttwo() async {
-    try {
-      
-      final Map<dynamic, dynamic> result = await platform.invokeMethod('parttwo');
-      return {
-        "key": List<int>.from(result['key']),
-        "iv": List<int>.from(result['iv']),
-      };
+```dart
+static const platform = MethodChannel('parttwo');
+```
 
-la part two utilise MethodChannel qui pernet d'appeler une fonction native
+Checking the binary output in JADX-GUI inside the Android logic, `MainActivity` registers the `parttwo` gateway mapping to custom obfuscation routines:
 
-et effectivement le mainactivity.smali register une parttwo
-
-j'ouvre dans JADX-GUI
-
-    static {
+```java
+static {
         piecesOf piecesof = new piecesOf();
         INSTANCE = piecesof;
         byte[] bArr = {90, 107, 124, -115, -98, -81, -80, -63, -46, -29, -12, 5, 22, 39, 56, 73};
@@ -287,164 +259,103 @@ j'ouvre dans JADX-GUI
         oB2 = bArr4;
         parttwo_1 = piecesof.m48tB(bArr3, bArr);
         parttwo_2 = piecesof.m48tB(bArr4, bArr2);
-    }
+}
 
-    /* JADX INFO: renamed from: rR */
-    private final byte m47rR(byte v, int c) {
+private final byte m47rR(byte v, int c) {
         return (byte) ((v >> c) | (v << (8 - c)));
-    }
+}
 
-    /* JADX INFO: renamed from: tB */
-    private final byte[] m48tB(byte[] i, byte[] p) {
+private final byte[] m48tB(byte[] i, byte[] p) {
         int length = i.length;
         byte[] bArr = new byte[length];
         for (int i2 = 0; i2 < length; i2++) {
-            bArr[i2] = INSTANCE.m47rR((byte) (i[i2] ^ p[i2 % p.length]), 3);
+                bArr[i2] = INSTANCE.m47rR((byte) (i[i2] ^ p[i2 % p.length]), 3);
         }
         return bArr;
-    }
+}
+```
 
-    public final byte[] getParttwo_1() {
-        return parttwo_1;
-    }
+The backend code extracts the first 18 bytes of `parttwo_1` for the key, and the first 7 bytes of `parttwo_2` for the IV.
 
-    public final byte[] getParttwo_2() {
-        return parttwo_2;
-    }
+### Part Three: Native JNI Logic
 
-    public static final Map<String, byte[]> get_parttwo() {
-        byte[] keyFirst18 = ArraysKt.copyOfRange(piecesOf.INSTANCE.getParttwo_1(), 0, 18);
-        byte[] ivFirst18 = ArraysKt.copyOfRange(piecesOf.INSTANCE.getParttwo_2(), 0, 7);
-        return MapsKt.mapOf(Tuples3.m88to("key", keyFirst18), Tuples3.m88to("iv", ivFirst18));
-    }
+Finally, Part Three calls the native C routines exported inside our `libmenascyber.so` library:
 
-    if (Intrinsics.areEqual(call.method, "parttwo")) {
-        Map response = MainActivity2.get_parttwo();
-        result.success(response);
-    }
-
-ça on pourra peut-être le faire avec frida au moins
-
-pour les parties 3 on retrouves ce bout de code qui semble call des fonctions sur libmenascyber.so (ce qui est bizarre car je n'avais rien vu a l'interieur)
-
+```dart
 typedef GetAESKeyNative = Pointer<Uint8> Function();
 typedef GetAESIVNative = Pointer<Uint8> Function();
+// Calls partthree_1 and partthree_2 
+```
 
-class AESNativeLib {
+Opening `libmenascyber.so` inside Ghidra allowed me to extract the native obfuscating loops. The algorithms execute native binary rotations and XOR operations over internal statics labelled `DAT_00010418` through `DAT_00010458`.
 
+---
 
-  final DynamicLibrary _dylib;
+## Reconstruction Script
 
-  // Private constructor
-  AESNativeLib._(this._dylib);
+I implemented the combined logic of all three parts in Python:
 
-  // Singleton instance
-  static AESNativeLib? _instance;
+```python
+# Reconstructed Decryption Engine
+import base64
+from Crypto.Cipher import AES
 
-  // Load the shared library and return the instance
-  static AESNativeLib get instance {
-    _instance ??= AESNativeLib._(DynamicLibrary.open('libmenascyber.so'));
-    return _instance!;
-  }
-
-  List<int> getAESKey() {
-    final getAESKey = _dylib
-        .lookupFunction<GetAESKeyNative, GetAESKeyNative>('partthree_1');
-    final keyPointer = getAESKey();
-    return keyPointer.asTypedList(32);
-  }
-
-  List<int> getAESIV() {
-    final getAESIV = _dylib
-        .lookupFunction<GetAESIVNative, GetAESIVNative>('partthree_2');
-    final ivPointer = getAESIV();
-    return ivPointer.asTypedList(16);
-  }
-}
-
-effectivement je trouves les fonctions labellisées dans la librairie avec ghidra
-
-voilà avec toutes ces parties on devrait pouvoir reconstituer le flag (avec celles dans le .so)
-la question maintenant est: est ce qu'on essaye de faire ça a la main ou alors on réessaie de détourner le programme
-
-
-ok partone:
-
-Future<Map<String, List<int>>> partone() async {
-// Shuffle the key and IV deterministically
-final shuffledKey = _deterministicShuffle(_hardcodedKey, 5);
-final shuffledIV = _deterministicShuffle(_hardcodedIV, 3);
-
-List<int> _deterministicShuffle(List<int> input, int shift) {
-return List<int>.generate(input.length, (i) {
-return input[(i + shift) % input.length];
-});
-}
-
-_hardcodedKey = List<int>.generate(32, (i) => (i + 1) % 256);
-_hardcodedIV = List<int>.generate(16, (i) => (i + 10) % 256);
-
-
-_hardcodedKey = List<int>.generate(32, (i) => (i + 1) % 256);
-[1, 2, 3, 4, ..., 32]
-_hardcodedIV = List<int>.generate(16, (i) => (i + 10) % 256);
-[10 , 11, 12, 13, ..., 25]
-
-En fait a partir de là je penses que c'est mieux de créer un script python au lieu d'essayer de le faire a la main
-
-je penses qu'il y a moyen de moins se faire chier en interceptant les parties du code .so avec frida et en copiant collant les parties en dart MAIS j'ai besoin de train un peu mon python et j'ai du temps devant moi donc faisons comme ça
-
+# Part One
 _hardcodedKey = [(i + 1) % 256 for i in range(32)]
 _hardcodedIV = [(i + 10) % 256 for i in range(16)]
 
-def _deterministicShuffle(input, shift):
-    return [input[(i + shift) % len(input)] for i in range(len(input))]
+def _deterministicShuffle(input_list, shift):
+        return [input_list[(i + shift) % len(input_list)] for i in range(len(input_list))]
 
 shuffledKey = _deterministicShuffle(_hardcodedKey, 5)
 shuffledIv = _deterministicShuffle(_hardcodedIV, 3)
 
 partoneData = {
-    'key': shuffledKey,
-    'iv' :shuffledIv
+        'key': shuffledKey,
+        'iv' : shuffledIv
 }
 
+# Part Two
 bArr = [90, 107, 124, -115, -98, -81, -80, -63, -46, -29, -12, 5, 22, 39, 56, 73]
 bArr2 = [26, 43, 60, 77, 94, 111, 112, -127, -110, -93, -76, -59, -42, -25, -8, 9]
 bArr3 = [96, 61, -21, 16, 21, -54, 113, -66, 43, 115, -82, -16, -123, 125, 119, -127, 31, 53, 44, 7, 59, 97, 8, -41, 45, -104, 16, -93, 9, 20, -33, -12]
 bArr4 = [-96, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 def m47rR(v, c):
-    return ((v >> c) | (v << (8 - c)))
+        # Adjust to simulate 8-bit byte rotation in Python
+        v = v & 0xFF
+        return ((v >> c) | (v << (8 - c))) & 0xFF
 
 def m48tB(data, p):
-    length = len(data)
-    result = [0] * length
-    for idx in range(length):
-        xored = data[idx] ^ p[idx % len(p)]
-        result[idx] = m47rR(xored, 3)
-    return result
+        length = len(data)
+        result = [0] * length
+        for idx in range(length):
+                xored = (data[idx] ^ p[idx % len(p)]) & 0xFF
+                result[idx] = m47rR(xored, 3)
+        return result
 
 parttwo_1 = m48tB(bArr3, bArr)
 parttwo_2 = m48tB(bArr4, bArr2)
 
 parttwoData = {
-    "key": parttwo_1[:18],
-    "iv": parttwo_2[:7]
+        "key": parttwo_1[:18],
+        "iv": parttwo_2[:7]
 }
 
+# Part Three
 def randFunc1(param_1, param_2):
-    return (param_1 >> (param_2 & 0x1f) | param_1 << (8 - param_2 & 0x1f)) & 0xff
+        return ((param_1 >> (param_2 & 0x1f)) | (param_1 << (8 - (param_2 & 0x1f)))) & 0xff
 
-def randFunc2(param_1,param_3, length):
-    res = [0] * length
-    for idx in range(length):
-        uVar1 = randFunc1(param_1[idx] ^ param_3[idx], 3)
-        res[idx] = uVar1
-    return res
+def randFunc2(param_1, param_3, length):
+        res = [0] * length
+        for idx in range(length):
+                uVar1 = randFunc1(param_1[idx] ^ param_3[idx], 3)
+                res[idx] = uVar1
+        return res
 
 DAT_00010418 = [ 0x02, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f ]
 DAT_00010458 = [ 0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0xaf, 0xb0, 0xc1, 0xd2, 0xe3, 0xf4, 0x05, 0x16, 0x27, 0x38, 0x49, 0x5a, 0x6b, 0x7c, 0x8d, 0x9e, 0xaf, 0xb0, 0xc1, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 ]
-partthree_1 = randFunc2(DAT_00010418, DAT_00010458 , 0x20)
+partthree_1 = randFunc2(DAT_00010418, DAT_00010458, 0x20)
 
 DAT_00010438 = [ 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf ]
 DAT_00010448 = [ 0x1a, 0x2b, 0x3c, 0x4d, 0x5e, 0x6f, 0x70, 0x81, 0x92, 0xa3, 0xb4, 0xc5, 0xd6, 0xe7, 0xf8, 0x09 ]
@@ -453,37 +364,29 @@ partthree_2 = randFunc2(DAT_00010438, DAT_00010448, 0x10)
 partthreeKey = partthree_1
 partthreeIV = partthree_2
 
-combinedKey = (
-    partoneData["key"][:8] +
-    parttwoData["key"][:8] +
-    partthreeKey[:16]
+# Mixing the keys together
+combinedKey = bytes(
+        partoneData["key"][:8] +
+        parttwoData["key"][:8] +
+        partthreeKey[:16]
 )
 
-combinedIv = (
-    partoneData["iv"][:4] +
-    parttwoData["iv"][:4] +
-    partthreeIV[:8]
+combinedIv = bytes(
+        partoneData["iv"][:4] +
+        parttwoData["iv"][:4] +
+        partthreeIV[:8]
 )
 
-def to_hex(byte_list):
-    return ''.join(f'{b & 0xFF:02x}' for b in byte_list)
+# Cipher Setup
+encrypted_flag = base64.b64decode('aZ/KF0GsnN81j5XStQyKz3vXtktTVN5zFqy5lwTmub6fx5w70c+p08O0OWcn/9nh')
+cipher = AES.new(combinedKey, AES.MODE_CBC, combinedIv)
+print(f"Decrypted: {cipher.decrypt(encrypted_flag)}")
+```
 
-keys = {
-    "key": to_hex(combinedKey),
-    "iv": to_hex(combinedIv)
-}
+Running the code extracted a clear flag output, except for a minor hiccup where the introductory character `'I'` printed out as `'é'`. This pointed to a localized bit error inside byte 5 of my calculated IV block. Knowing what the beginning signature of the flag structure looked like, correcting the character resolved the exact flag instantly.
 
-print(f"Key ({len(combinedKey)} bytes): {keys['key']}")
-print(f"IV  ({len(combinedIv)} bytes): {keys['iv']}")
+---
 
-il y a le code avec les morceaux originaux dans scripts/decrypt.py
-j'ai fais tout le code mais bizarrement le flag ne marche pas
-alors qu'il fait sens, il y a un é au début qui devrait être un I.
-avec ce changement ça fonctionne sans problème mais j'essaie de voir d'ou ça vient
+## Wrap-up
 
-normalement c'est l'octet 5 de l'IV mais pourquoi, je ne sais pas
-
-J'ai plus assez d'energie pour faire des grandes recherches, j'ai trouvé le flag TERMINÉ !
-
-conclusion:
-Encore une joie de découvrir le reverse d'android dans un nouveau contexte (dart debug), tout reverse me paraissait une tache assez chiante a la base c'est pour ça que je voulais hijack le fonctionnement, mais finalement ça m'a permit d'affuter mes skills de reverser static, j'ai pu identifier rapidement à droite et a gauche quels étaient les fichiers a explorer et où, j'ai pu pratiquer un peu de python et je suis assez fier de mon code écrit a la main. Bon exo ! (je me demande toujours si je ne peux pas faire un editeur de kernel_blob.bin, c'est assez niche et je penses que ça n'a pas d'utilité en dehors de ce contexte mais ça aurais rendu le projet 100x plus simple, je le ferais peut-être si je m'ennuie, ça peut être bien sur le cv)
+This was an incredibly engaging challenge that pushed me to explore how Flutter packages intermediate logic. Navigating a Flutter JIT build structure with `kernel_blob.bin` was highly rewarding, and rebuilding nested cryptographic operations via static analysis proved to be a practical alternative to dynamic engine hooks.
