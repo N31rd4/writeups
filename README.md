@@ -100,6 +100,9 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
 - [Jigsaw](./Challenges/Jigsaw/Writeup.md)  
 ![Jigsaw](./Challenges/Jigsaw/header.webp)  
     *Overview*: Explores Flutter-based Adroid reverse engineering, and reconstruct decrypt function from pieces of code scattered all throughout the apk.
+- [Cryptohorrific](./Challenges/Cryptohorrific/Writeup.md)  
+![Cryptohorrific](./Challenges/Cryptohorrific/header.webp)  
+    *Overview*: Explores iOS application reverse engineering, including property list analysis and disassembly of the Mach-O binary to retrieve the flag.
 ### Disclaimer
 These writeups are for educational purposes only. Unauthorized use of these techniques on systems you do not own or have explicit permission to test is illegal.
 

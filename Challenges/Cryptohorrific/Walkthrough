@@ -1,0 +1,270 @@
+Encore un exercice de la série mobile mais là bizarrement j'ai pas un apk
+
+[ hackthebox.app]$ ls -la *
+-rw-r--r-- 1 neirda neirda   185  3 mai    2018 challenge.plist
+-rw-r--r-- 1 neirda neirda 32352  3 mai    2018 hackthebox
+-rw-r--r-- 1 neirda neirda  9793  3 mai    2018 htb-company.png
+-rw-r--r-- 1 neirda neirda  1132  3 mai    2018 Info.plist
+-rw-r--r-- 1 neirda neirda     8  3 mai    2018 PkgInfo
+
+Base.lproj:
+total 16
+drwxr-xr-x 4 neirda neirda 4096  3 mai    2018 .
+drwxr-xr-x 4 neirda neirda 4096  3 mai    2018 ..
+drwxr-xr-x 2 neirda neirda 4096  3 mai    2018 LaunchScreen.storyboardc
+drwxr-xr-x 2 neirda neirda 4096  3 mai    2018 Main.storyboardc
+
+_CodeSignature:
+total 16
+drwxr-xr-x 2 neirda neirda 4096  3 mai    2018 .
+drwxr-xr-x 4 neirda neirda 4096  3 mai    2018 ..
+-rw-r--r-- 1 neirda neirda 5073  3 mai    2018 CodeResources
+
+le png ne s'ouvre même pas, je suis perdu (et 2018 ????)
+
+apparament c'est une app IOS et les infos sont dans le fichier "hackthebox"
+
+je l'ouvre donc avec ghidra
+
+ce qui est bien c'est que beaucoup de choses sont bien nommées et identifiés,
+
+je trouves des references au label cf_flag ici
+
+/* Function Stack Size: 0x10 bytes */
+
+void ViewController::viewDidLoad(ID param_1,SEL param_2)
+
+{
+  ID self;
+  ID self_00;
+  ID IVar1;
+  ID IVar2;
+  ID IVar3;
+  ID IVar4;
+  undefined8 uVar5;
+  ID IVar6;
+  undefined8 uVar7;
+  ID IVar8;
+  undefined8 uVar9;
+  ID local_28;
+  class_t *local_20;
+  SEL local_18;
+  ID local_10;
+  
+  local_20 = &objc::class_t::ViewController;
+  local_28 = param_1;
+  local_18 = param_2;
+  local_10 = param_1;
+  UIViewController::viewDidLoad((ID)&local_28,"viewDidLoad");
+  self = *(ID *)(local_10 + l);
+  self_00 = NSString::alloc((ID)&_OBJC_CLASS_$_NSString,"alloc");
+  IVar8 = local_10;
+  IVar1 = NSData::alloc((ID)&_OBJC_CLASS_$_NSData,"alloc");
+  IVar2 = NSArray::alloc((ID)&_OBJC_CLASS_$_NSArray,"alloc");
+  IVar3 = NSBundle::mainBundle((ID)&_OBJC_CLASS_$_NSBundle,"mainBundle");
+  IVar3 = _objc_retainAutoreleasedReturnValue(IVar3);
+  IVar4 = _objc_msgSend(IVar3,"pathForResource:ofType:",&cf_challenge,&cf_plist);
+  uVar5 = _objc_retainAutoreleasedReturnValue(IVar4);
+  IVar2 = NSArray::initWithContentsOfFile:(IVar2,"initWithContentsOfFile:",uVar5);
+  IVar4 = NSArray::objectAtIndex:(IVar2,"objectAtIndex:",0);
+  IVar4 = _objc_retainAutoreleasedReturnValue(IVar4);
+  IVar6 = _objc_msgSend(IVar4,"objectForKey:",&cf_flag);
+  uVar7 = _objc_retainAutoreleasedReturnValue(IVar6);
+  IVar1 = NSData::initWithBase64EncodedString:options:
+                    (IVar1,"initWithBase64EncodedString:options:",uVar7,0);
+  IVar8 = _objc_msgSend(IVar8,"SecretManager:key:iv:data:",1,&cf_!A%D*G-KaPdSgVkY,
+                        &cf_QfTjWnZq4t7w!z%C,IVar1);
+  uVar9 = _objc_retainAutoreleasedReturnValue(IVar8);
+  IVar8 = NSString::initWithData:encoding:(self_00,"initWithData:encoding:",uVar9,4);
+  _objc_msgSend(self,"setText:",IVar8);
+  _objc_release(IVar8);
+  _objc_release(uVar9);
+  _objc_release(IVar1);
+  _objc_release(uVar7);
+  _objc_release(IVar4);
+  _objc_release(IVar2);
+  _objc_release(uVar5);
+  _objc_release(IVar3);
+  return;
+}
+
+ça a l'air d'ếtre le seul endroit où je vois du code interressant, je vais chercher a apprendre un peu plus sur l'objective C et le reverse d'app IOS https://github.com/GhidraEnjoyr/iOS-Reverse-Engineering#introduction
+
+En utilisant la commande string sur les fichiers PLIST je tombe sur des trucs interresants
+
+$ strings challenge.plist 
+bplist00
+TflagRidUtitle_
+XTq+CWzQS0wYzs2rJ+GNrPLP6qekDbwze6fIeRRwBK2WXHOhba7WR2OGNUFKoAvyW7njTCMlQzlwIRdJvaP2iYQ==S123_
+HackTheBoxIsCool
+
+un morceau de code me parait interressant:
+
+
+/* Function Stack Size: 0x2c bytes */
+
+ID ViewController::SecretManager:key:iv:data:
+             (ID param_1,SEL param_2,unsigned int param_3,ID param_4,ID param_5,ID param_6)
+
+{
+  unsigned int op;
+  CCCryptorStatus CVar1;
+  ID bytes;
+  void *dataIn;
+  size_t local_b0;
+  void *local_a8;
+  size_t local_a0;
+  ID local_98;
+  ID length;
+  ID param_5_bis;
+  ID param_4_bis;
+  unsigned int param_3_bis;
+  SEL param_2_bis;
+  ID param_1_bis;
+  undefined8 local_60;
+  undefined1 local_58 [32];
+  undefined1 local_38 [24];
+  long canary;
+  
+  canary = *(long *)PTR____stack_chk_guard_100003010;
+  param_4_bis = 0;
+  param_3_bis = param_3;
+  param_2_bis = param_2;
+  param_1_bis = param_1;
+  _objc_storeStrong(&param_4_bis,param_4);
+  param_5_bis = 0;
+  _objc_storeStrong(&param_5_bis,param_5);
+  length = 0;
+  _objc_storeStrong(&length);
+  _memset(local_38,0,0x11);
+  _objc_msgSend(param_4_bis,"getCString:maxLength:encoding:",local_38,0x11,4);
+  _memset(local_58,0,0x11);
+  if (param_5_bis != 0) {
+    _objc_msgSend(param_5_bis,"getCString:maxLength:encoding:",local_58,0x11,4);
+  }
+  local_98 = _objc_msgSend(length,"length");
+  local_a0 = local_98 + 16;
+  local_a8 = _malloc(local_a0);
+  op = param_3_bis;
+  local_b0 = 0;
+  bytes = _objc_retainAutorelease(length);
+  dataIn = (void *)_objc_msgSend(bytes,"bytes");
+  CVar1 = _CCCrypt(op,0,3,local_38,0x10,local_58,dataIn,local_98,local_a8,local_a0,&local_b0);
+  if (CVar1 == 0) {
+    bytes = NSData::dataWithBytesNoCopy:length:
+                      ((ID)&_OBJC_CLASS_$_NSData,"dataWithBytesNoCopy:length:",local_a8,local_b0);
+    local_60 = _objc_retainAutoreleasedReturnValue(bytes);
+  }
+  else {
+    _free(local_a8);
+    local_60 = 0;
+  }
+  _objc_storeStrong(&length,0);
+  _objc_storeStrong(&param_5_bis,0);
+  _objc_storeStrong(&param_4_bis,0);
+  bytes = _objc_autoreleaseReturnValue(local_60);
+  if (*(long *)PTR____stack_chk_guard_100003010 == canary) {
+    return bytes;
+  }
+                    /* WARNING: Subroutine does not return */
+  ___stack_chk_fail();
+}
+
+
+
+CVar1 = _CCCrypt(op,0,3,local_38,0x10,local_58,dataIn,local_98,local_a8,local_a0,&local_b0);
+
+
+https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/CCCrypt.3cc.html
+
+la doc m'aide a comprendre
+CCCryptorStatus
+CCCrypt(CCOperation op, CCAlgorithm alg, CCOptions options,
+    const void *key, size_t keyLength, const void *iv,
+    const void *dataIn, size_t dataInLength, void *dataOut,
+    size_t dataOutAvailable, size_t *dataOutMoved);
+
+
+Position	Arg	Value	Meaning
+1	op	op (variable)	encrypt or decrypt — check what's passed in as op; likely 0 = encrypt, 1 = decrypt
+2	alg	0	kCCAlgorithmAES (AES, also AES128 — algorithm 0 is AES)
+3	options	3	flags — this is a bitmask. kCCOptionPKCS7Padding = 0x0001, kCCOptionECBMode = 0x0002. 3 = both bits set → PKCS7 padding + ECB mode
+4	key	local_38	pointer to key bytes
+5	keyLength	0x10	16 bytes → AES-128 key
+6	iv	local_58	IV pointer — note: irrelevant in ECB mode since ECB doesn't use an IV, so this is likely ignored by CommonCrypto even though it's passed
+7	dataIn	dataIn	input buffer
+8	dataInLength	local_98	input length
+9	dataOut	local_a8	output buffer
+10	dataOutAvailable	local_a0	output buffer capacity
+11	dataOutMoved	&local_b0	out-param: bytes actually written
+
+
+Je rename les differents paramètres pour trouver d'où viennent les differentes parties de l'AES
+
+DataIn:
+dataIn = (void *)_objc_msgSend(bytes,"bytes");
+
+IV:
+ID ViewController::SecretManager:key:iv:data:
+             (ID param_1,SEL param_2,unsigned int param_3,ID p_Key,ID p_IV,ID param_6)
+...
+_objc_storeStrong(&param_IV,p_IV);
+...
+_memset(IV,0,17);
+if (param_IV != 0) {
+  _objc_msgSend(param_IV,"getCString:maxLength:encoding:",IV,17,4);
+}
+
+
+key:
+ID ViewController::SecretManager:key:iv:data:
+             (ID param_1,SEL param_2,unsigned int param_3,ID p_Key,ID p_IV,ID param_6)
+...
+_objc_storeStrong(&param_IV,p_IV);
+...
+_memset(key,0,17);
+_objc_msgSend(param_key,"getCString:maxLength:encoding:",key,17,4);
+
+key et le potentiel IV viennent des params faut que je comprenne d'ou vien la data chiffrée
+
+
+en tout cas la fonction est call ici
+  IVar8 = _objc_msgSend(IVar8,"SecretManager:key:iv:data:",1,&cf_!A%D*G-KaPdSgVkY,
+                        &cf_QfTjWnZq4t7w!z%C,IVar1);
+
+le 1 veut dire qu'on est en mode déchiffrage
+
+le premier parametre la key donne:
+21 41 25 44 2a 47 2d 4b 61 50 64 53 67 56 6b 59
+le deuxième l'IV donne:
+51 66 54 6a 57 6e 5a 71 34 74 37 77 21 7a 25 43
+
+
+IVar3 = _objc_msgSend(IVar2,"pathForResource:ofType:",&cf_challenge,&cf_plist);
+uVar4 = _objc_retainAutoreleasedReturnValue(IVar3);
+IVar1 = NSArray::initWithContentsOfFile:(IVar1,"initWithContentsOfFile:",uVar4);
+IVar3 = NSArray::objectAtIndex:(IVar1,"objectAtIndex:",0);
+IVar3 = _objc_retainAutoreleasedReturnValue(IVar3);
+flag = _objc_msgSend(IVar3,"objectForKey:",&cf_flag);
+base64data = _objc_retainAutoreleasedReturnValue(flag);
+data = NSData::initWithBase64EncodedString:options:
+(data,"initWithBase64EncodedString:options:",base64data,0);
+
+tout ce passage me laisse sous entendre que le flag est dans challenge.plist (et encodé en base64)
+
+on avait déjà vu avec strings qu'il y avait de la data mais j'ai envie de faire plus clean
+
+https://plist-viewer.com/index.html
+ce site nous donne 
+
+Tq+CWzQS0wYzs2rJ+GNrPLP6qekDbwze6fIeRRwBK2WXHOhba7WR2OGNUFKoAvyW7njTCMlQzlwIRdJvaP2iYQ==
+
+en mode ECB sur cyberchef je déchiffre tout avec ces parametres
+
+(img: sc/cyberchef.webp)
+TERMINÉ
+
+Conclusions:
+Pour le coup j'ai trouvé cet exo SUPEEEEEERRRR simple, j'ai même l'impression de m'être pris la tête pour rien
+juste avec le challenge.plist, cette ligne   IVar8 = _objc_msgSend(IVar8,"SecretManager:key:iv:data:",1,&cf_!A%D*G-KaPdSgVkY, &cf_QfTjWnZq4t7w!z%C,IVar1); et ghidra j'aurais pu trouver ça en 30 sec chrono (si je savais un peu ou chercher et que je comprenais que les calls se faisaient avec _objc_msgSend), les paramètres étaient mếme ecrit dans l'ordre dans la string de la fonction.
+Bref j'ai trouvé ça choquant de symplicité par rapport aux exos précédents, je ne comprends vraiment pas pourquoi il est noté plus dur que JIGSAW
