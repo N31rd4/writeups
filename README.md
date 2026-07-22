@@ -103,6 +103,9 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
 - [Cryptohorrific](./Challenges/Cryptohorrific/Writeup.md)  
 ![Cryptohorrific](./Challenges/Cryptohorrific/header.webp)  
     *Overview*: Explores iOS application reverse engineering, including property list analysis and disassembly of the Mach-O binary to retrieve the flag.
+- [Protected](./Challenges/Protected/Writeup.md)  
+![Protected](./Challenges/Protected/header.webp)  
+    *Overview*: Explores Android mobile forensics, analyzing application data, keystore database entries, and decrypting hidden media files using GalleryVault tools to retrieve the flag.
 ### Disclaimer
 These writeups are for educational purposes only. Unauthorized use of these techniques on systems you do not own or have explicit permission to test is illegal.
 

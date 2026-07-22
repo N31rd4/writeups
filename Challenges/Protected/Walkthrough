@@ -1,0 +1,59 @@
+Nouvel exo mobile !
+Texte du challenge:
+Challenge Scenario
+
+While examining the device, we discovered that critical evidence or artifacts may have been overlooked. We believe that your expertise in mobile forensics will enable you to uncover the missing piece.
+
+Un truc bizarre il me force a me connecter au VPN pour télécharger l'app, je me dis que c'est peut être un signe que l'app devra se connecter à internet et qu'il faudra regarder ça
+
+ok donc cette fois ci comme l'indique le texte c'est pas une APK mais directement un dump du stockage d'un téléphone android a analyser, je sais vraiment pas par où commencer mais allons y
+
+j'ai commencé par supprimer tout les dossiers vides
+
+find /path/to/directory -depth -type d -empty -delete
+
+Ensuite ne connaissant rien a Android, j'ai demandé a claude de m'expliquer la signification de chaque dossier et de me dire si il voyait quelque chose d'anormal
+
+ok je vois vaguement l'utilité de chaque dossiers, je regarde donc dans les datas d'app qui me paraissent interressantes, dans notes.notepad.checklist.calendar.todolist.notebook je trouves une db avec a l'interieur un HTB{Fake_Flaggggggggggggggggggggggggggg}
+
+c'est donc autre part
+
+je me concentre principalement sur les apps qui ne sont pas com.google.android
+
+après un premier passage rien d'interressant dans com.thinkyeah.galleryvault
+
+il reste les data de l'application signal, normalement tout est chiffré en local
+
+je regarde des tutos pour voir comment déchiffrer tout ça 
+https://matthewplascencia.substack.com/p/reading-a-droids-signal
+
+je suit ce tutoriel mais il me manque la clé secrete située dans la keystore d'android censé être là mais pas présente chez moi /data/keystore/user_0/10044_USRSKEY_SignalSecret
+https://rado0z.github.io/Decrypt_Android_Database
+
+par contre a la place je trouves une db nommée persistent.sqlite (dans le dossier keystore), et dans cette db il y a une ligne alias "SignalSecret" dans la table "keyentry",
+cet alias est relié a l'ID -3236971586366532847
+et dans la table "BlobEntry" cet id est relié a un blob, est ce là ma clé tant recherchée ?
+le binaire commence par PKMBLOB
+j'ai du mal a déchiffrer et je vois aucune source en ligne parler de ce fichier
+j'essaye d'avoir la version exacte d'android pour avoir plus d'infos
+
+j'arrive toujours pas je passe a l'app "galeryvault" et dans la db principale dedans je tombes sur un fichier "flag.png"
+
+en cherchant comment déchiffrer j'ai trouvé rapidement un script
+https://github.com/caveeroo/gv_decryptor
+
+ça a fonctionné et ça m'a donné le flag dans le png
+Je suis un peu dégouté car j'ai l'impression d'avoir volé le taff d'un autre je pensais vraiment que le vrai flag allait être dans l'app signal et que c'était un bait.
+
+Mais bon au moins on va analyser le script et dire où est ce que j'aurais pu trouver l'info
+
+en mars 2025 une personne a publié un article oú il reverse l'application (le challenge date de decembre 2025)
+https://www.s-rminform.com/latest-thinking/cracking-the-vault-exposing-the-weaknesses-of-encrypted-apps
+En gros c'est un XOR sur les fichiers situés dans media/0 avec une position particulière a trouver et un mode de chiffrement indiqué par un byte, ensuite avec DES-ECB et la clé hardcodée on peu aller chercher une XOR key spécifique au fichier.
+Avec la XOR key et le mode de déchiffrement trouvé dans le byte spécifique on peut mtn déchiffrer la data au coeur du fichier
+Ensuite en cherchant sur github on voit qu'un mec avait déjà publié un sript pour déchiffrer avant la sortie du challenge en juillet 2025 (https://github.com/Tom-Lovatt/galleryvault-decryptor), je penses que c'est cette voie que le createur du challenge attendait de nous (la réalisation de notre propre script reste totalement faisable bien que difficile par raport a un challenge classé moyen)
+
+TERMINÉ !
+
+CONCLUSION:
+Alors c'était pas un exercice de reverse donc bon c'était pas trop ce que je cherchais mais j'en ai pas mal appris sur la structure d'un dump de stockage windows et du fonctionnement de signal (et du keystore) bien que ca se soit révélé être la mauvaise voie. Un peu frustrant que ça se termine sur un simple script mais bon
