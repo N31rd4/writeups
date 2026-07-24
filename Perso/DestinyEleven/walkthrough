@@ -1,0 +1,35 @@
+Je me faisais chier et en ce moment je suis dans un mood de reverse engineering donc tentons de reverse DestinyEleven pour avoir une carrière de FOU
+
+J'arrive sur le jeu, je me rends compte rapidement que tout tourne en local, je m'y attendais.
+ça semble être du vanilla JS (local.webp)
+je récupère le code des 3 fichiers js puis je le passe dans un beautifier pour y voir un peu plus clair
+je me retrouves quand même avec du code obfusqué (obfuscated.webp)
+Je me dis qu'il y a deux moyens d'arriver a mes fins, soit je changes le js, soit je change la state dans le storage, je me dis que changer le js sera un peu trop chiant il est déjà 23h je veux dormir pas trop tard donc je regarde où est stocké la data, dans le local storage sous le nom de destinyEleven_current (localstorage.webp)
+Mais ça a l'air chiffré ou encodé je ne sais pas comment, je pensais a une simple base 64 mais ça ne donne rien sur cyberchef (cyberchef.webp)
+je vais donc rechercher dans le code l'endroit où est écrit et est lu le local storage, lié a cet endroit je devrais avoir les fonction de chiffrage et déchiffrage
+
+Je trouves 9 mention de localstorage dans data.js et 9 dans engine.js prenons en un au hasard, j'en choisis un avec getItem parceque ça sera plus simple de valider la validité d'une fonction de déchiffrement que l'inverse
+celui là par exemple dans engine.js (getItem.webp)
+il passe le résultat du getItem dans la fonction _0x269cc0
+
+encore une fonction incompréhensible qui apelle pleins d'autres fonctions (decrypt_fun.webp), j'éssaie d'isoler toutes les fonctions qu'elle appelle dans un nouveau fichier 
+
+malgré ça ça ne fonctionnait pas, je ne comprenais pas, en fait dans le script il y a une table immense de strings chiffrées (qui correspondent en gros a toutes les strings du code) (table.webp)
+mais quand j'utilisais la fonction de déchiffrage avec les index du tableau présent dans le code ça me donnais les mauvais signes, après une bonne heure a tourner dans le vide j'ai réussi, en fait juste après la fonction de déchiffrage, le programme appelle une autre fonction qui fait une certaine rotation tu tableau chiffré, et en copiant cette fonction aussi j'ai reussi à avoir les bonnes strings au bon endroit.
+
+après avoir trouvé comment retrouver les strings du code en clair, grace à ça je sais que toutes référence a "_0x31e2f3" dans le code correspond a destinyEleven_current (la clé de la data que l'on cherche)
+
+tout porte donc a croire que j'avais viser juste et que _0x269cc0() est une fonction de déchiffrage, malheureusement elle ne semble pas fonctionner et me retourne null 
+
+après un long travail a chercher toutes les fonctions nécessaires et a les ramener dans mon fichier, j'ai enfin réussi a déchiffrer le storage (dechiffre.webp)
+
+je stocke le resultat dans un fichier json et il reste plus qu'a trouver la fonction de chiffrement.
+
+On va donc faire le chemin inverse c'est a dire essayer de trouver un "localStorage" dans le code avec "setItem"
+ce morceau de code semble être notre seule piste (target.webp) comme pour la dernière fois, une fois tout les morceaux recollés ça fonctionne, plus qu'a comparer le chiffrage avec les données réelles
+
+ET C'EST VALIDÉ, il y a plus qu'a demander a un ami chinois de me coder vitefait une extension (deepseek.webp)
+il y avait quelques soucis mais après modifications tout fonctionne
+je vous présente sofiane diallo le prodige de marseille (result.webp)
+le script tampermonkey est dispo ici 
+https://pastebin.com/Xg9CV2La

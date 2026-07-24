@@ -1,0 +1,323 @@
+{
+  "v": 1,
+  "ts": 1784838914326,
+  "g": {
+    "name": "Maël Moreau",
+    "nationality": {
+      "id": "fr",
+      "name": "France",
+      "flag": "🇫🇷",
+      "img": "src/img/flag/Flag_of_France.png",
+      "weight": 1,
+      "wcWeight": 1,
+      "homeCountryId": "fr"
+    },
+    "origin": {
+      "id": "formation",
+      "name": "Centre de formation classique",
+      "desc": "Un parcours académique, encadré et rigoureux depuis le plus jeune âge.",
+      "startStats": {
+        "t": 56,
+        "p": 54,
+        "m": 50,
+        "c": 42,
+        "rep": 18
+      }
+    },
+    "position": {
+      "id": "att",
+      "name": "Attaquant",
+      "icon": "⚡",
+      "goalRate": 0.6,
+      "assistRate": 0.18,
+      "desc": "Vivre et mourir pour le but. Les statistiques qui font les légendes… et les critiques quand elles se tarissent."
+    },
+    "lifestyle": {
+      "id": "pro",
+      "name": "Hygiène de pro",
+      "icon": "🥗",
+      "desc": "Couché à 22h, diète stricte, zéro écart. Les coéquipiers se moquent, les recruteurs adorent.",
+      "fx": {
+        "dis": 18,
+        "form": 6,
+        "c": -4
+      },
+      "potBonus": 2
+    },
+    "entourage": {
+      "id": "family",
+      "name": "Famille encadrante",
+      "icon": "👨‍👩‍👦",
+      "desc": "Des parents présents qui gèrent tout : contrats, école, équilibre.",
+      "fx": {
+        "dis": 8,
+        "m": 4
+      },
+      "academy": {
+        "d1": 6,
+        "elite": 2
+      }
+    },
+    "trajectory": {
+      "id": "chaotic",
+      "w": 12,
+      "label": "Montagnes russes",
+      "desc": "Des saisons stratosphériques, d'autres à oublier."
+    },
+    "sparkAge": 26,
+    "age": 16,
+    "year": 2026,
+    "club": {
+      "id": "fr_lesherbiers",
+      "name": "Les Herbiers",
+      "level": "regional",
+      "countryId": "fr",
+      "colors": "🔴⚫"
+    },
+    "coach": "L. Fontaine",
+    "contract": {
+      "salary": 0.006,
+      "years": 3
+    },
+    "stats": {
+      "t": 56,
+      "p": 54,
+      "m": 54,
+      "c": 38
+    },
+    "rep": 18,
+    "form": 74,
+    "moral": 70,
+    "discipline": 76,
+    "coachRel": 58,
+    "teamRel": 60,
+    "money": 0.05,
+    "potCap": 81,
+    "traits": [],
+    "flags": {},
+    "usedEvents": [],
+    "recentEvents": [],
+    "scheduled": [],
+    "injuryWeeks": 0,
+    "seasonTrophies": [],
+    "seasonAwards": [],
+    "loan": null,
+    "loanReturn": null,
+    "objective": null,
+    "lastSeason": null,
+    "clubLevels": {},
+    "clubMomentum": 0,
+    "clubFade": 0,
+    "awardCounts": {},
+    "archetype": null,
+    "leagueTitlesDetail": [],
+    "continentalDetail": [],
+    "momentWins": 0,
+    "derbyWins": 0,
+    "bestBallonRank": null,
+    "prevClub": null,
+    "natTeam": {
+      "active": false,
+      "retired": false,
+      "caps": 0,
+      "goals": 0
+    },
+    "totals": {
+      "matches": 0,
+      "goals": 0,
+      "assists": 0,
+      "cleanSheets": 0
+    },
+    "trophies": {
+      "league": 0,
+      "cup": 0,
+      "continental": 0,
+      "worldCup": 0,
+      "ballon": 0,
+      "goldenBoot": 0
+    },
+    "seasons": [],
+    "transferHistory": [
+      {
+        "age": 16,
+        "toClubName": "Les Herbiers",
+        "countryName": "France",
+        "fee": null,
+        "level": "regional"
+      }
+    ],
+    "history": [],
+    "peakOvr": 52,
+    "clubsPlayed": [
+      "fr_lesherbiers"
+    ],
+    "continentsPlayed": [
+      "eu"
+    ],
+    "retiring": false,
+    "careerEnded": false,
+    "careerEndReason": null
+  },
+  "r": {
+    "name": "Kylian Moreau",
+    "nationality": {
+      "id": "fr",
+      "name": "France",
+      "flag": "🇫🇷",
+      "img": "src/img/flag/Flag_of_France.png",
+      "weight": 1,
+      "wcWeight": 1,
+      "homeCountryId": "fr"
+    },
+    "origin": {
+      "id": "formation",
+      "name": "Centre de formation classique",
+      "desc": "Un parcours académique, encadré et rigoureux depuis le plus jeune âge.",
+      "startStats": {
+        "t": 56,
+        "p": 54,
+        "m": 50,
+        "c": 42,
+        "rep": 18
+      }
+    },
+    "position": {
+      "id": "att",
+      "name": "Attaquant",
+      "icon": "⚡",
+      "goalRate": 0.6,
+      "assistRate": 0.18,
+      "desc": "Vivre et mourir pour le but. Les statistiques qui font les légendes… et les critiques quand elles se tarissent."
+    },
+    "lifestyle": {
+      "id": "balance",
+      "name": "Équilibré",
+      "icon": "⚖️",
+      "desc": "Sérieux à l'entraînement, détendu en dehors. Ni moine, ni fêtard.",
+      "fx": {
+        "dis": 6,
+        "mor": 4
+      },
+      "potBonus": 0
+    },
+    "entourage": {
+      "id": "shark",
+      "name": "Agent ambitieux",
+      "icon": "🦈",
+      "desc": "Un jeune agent aux dents longues vous a repéré. Il promet les sommets — et prend sa part.",
+      "fx": {
+        "rep": 6,
+        "dis": -4
+      },
+      "academy": {
+        "elite": 10,
+        "d1": 2
+      },
+      "flag": "shark_agent"
+    },
+    "trajectory": {
+      "id": "normal",
+      "w": 26,
+      "label": "Progression classique",
+      "desc": "Une montée en puissance régulière."
+    },
+    "sparkAge": 25,
+    "age": 16,
+    "year": 2026,
+    "club": {
+      "id": "fr_amiens",
+      "name": "Amiens",
+      "level": "d2",
+      "countryId": "fr",
+      "colors": "⚫⚪"
+    },
+    "coach": "H. Weiss",
+    "contract": {
+      "salary": 0.018,
+      "years": 3
+    },
+    "stats": {
+      "t": 56,
+      "p": 54,
+      "m": 50,
+      "c": 42
+    },
+    "rep": 23,
+    "form": 68,
+    "moral": 74,
+    "discipline": 52,
+    "coachRel": 58,
+    "teamRel": 60,
+    "money": 0.05,
+    "potCap": 72,
+    "traits": [],
+    "flags": {
+      "shark_agent": true
+    },
+    "usedEvents": [],
+    "recentEvents": [],
+    "scheduled": [],
+    "injuryWeeks": 0,
+    "seasonTrophies": [],
+    "seasonAwards": [],
+    "loan": null,
+    "loanReturn": null,
+    "objective": null,
+    "lastSeason": null,
+    "clubLevels": {},
+    "clubMomentum": 0,
+    "clubFade": 0,
+    "awardCounts": {},
+    "archetype": null,
+    "leagueTitlesDetail": [],
+    "continentalDetail": [],
+    "momentWins": 0,
+    "derbyWins": 0,
+    "bestBallonRank": null,
+    "prevClub": null,
+    "natTeam": {
+      "active": false,
+      "retired": false,
+      "caps": 0,
+      "goals": 0
+    },
+    "totals": {
+      "matches": 0,
+      "goals": 0,
+      "assists": 0,
+      "cleanSheets": 0
+    },
+    "trophies": {
+      "league": 0,
+      "cup": 0,
+      "continental": 0,
+      "worldCup": 0,
+      "ballon": 0,
+      "goldenBoot": 0
+    },
+    "seasons": [],
+    "transferHistory": [
+      {
+        "age": 16,
+        "toClubName": "Amiens",
+        "countryName": "France",
+        "fee": null,
+        "level": "d2"
+      }
+    ],
+    "history": [],
+    "peakOvr": 52,
+    "clubsPlayed": [
+      "fr_amiens"
+    ],
+    "continentsPlayed": [
+      "eu"
+    ],
+    "retiring": false,
+    "careerEnded": false,
+    "careerEndReason": null
+  },
+  "legendGuest": null,
+  "legendGuestUsed": false,
+  "seedState": null
+}
