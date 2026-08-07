@@ -1,0 +1,279 @@
+Box htb:
+Challenge Scenario
+
+The malware forensics lab identified a new technique for hiding and executing code dynamically. A sample that seems to use this technique has just arrived in their queue. Can you help them?
+
+
+je télécharge le zip dedans j'ai une apk et un README disant
+1. Install this application in an API Level 29 or later (i.e. Android 10.0).
+
+Dans le texte d'origine on me dit que c'est une méthode pour executer du code secretement, je penses qu'une grande partie du boulot sera de l'analyse de code et du débug avec frida, donc avant de lancer l'application (qui je penses ne m'apporterais pas grand chose pour comprendre le contexte vue que l'execution de code est cachée) je préfère décompiler et explorer l'APK
+la précision de l'API level 29 pourrait me donner des indications pour savoir oú chercher, pour l'instant je penses que de regarder en ligne c'est de la triche mais bon si je reste bloqué j'irais voir ce qui change avec cette fameuse mise a jour de l'API level 29
+
+j'ouvre avec JADX-GUI
+Arch list: arm64-v8a, armeabi-v7a, x86, x86_64
+on va pouvoir l'executer au moins sur l'emulateur du pc
+
+dans le manifeste je vois <activity android:name="com.stego.saw.MainActivity">
+
+dans le fichier MainActivity la fonction alert() me parait louche:
+    public final String alert() {
+        final EditText editText = new EditText(this);
+        new AlertDialog.Builder(this).setTitle("XOR XOR XOR").setMessage("XOR ME !").setView(editText).setPositiveButton("XORIFY", new DialogInterface.OnClickListener() { // from class: com.stego.saw.MainActivity.4
+            @Override // android.content.DialogInterface.OnClickListener
+            public void onClick(DialogInterface dialogInterface, int i) {
+                MainActivity.this.answer = editText.getText().toString();
+                MainActivity mainActivity = MainActivity.this;
+                mainActivity.m9a(mainActivity.FILE_PATH_PREFIX, MainActivity.this.answer);
+            }
+        }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() { // from class: com.stego.saw.MainActivity.3
+            @Override // android.content.DialogInterface.OnClickListener
+            public void onClick(DialogInterface dialogInterface, int i) {
+                MainActivity.this.finish();
+            }
+        }).show();
+        return this.answer;
+    }
+
+il appelle m9a qui est une fonction native tirée d'autre part, avec deux paramètres, une PATH 
+qui semble etre le dossier data de l'app this.FILE_PATH_PREFIX = getApplicationContext().getApplicationInfo().dataDir + File.separatorChar; et une string qui est récupérée depuis la popup (ou l'alerte, je ne sais pas ce que c'est exactement).
+j'imagine donc que le malware se situe dans les librairies qui donnent accès à cette fonction
+/* JADX INFO: renamed from: a */
+public native String m9a(String str, String str2);
+
+static {
+    System.loadLibrary("default");
+}
+la définition semble être dans libdefault.so
+je l'ouvres donc avec ghidra
+
+je trouves ma fonction a()
+
+void a(_JNIEnv *param_1,_jobject *param_2,_jstring *param_3,_jstring *param_4)
+
+{
+  char *pcVar1;
+  char *pcVar2;
+  
+  pcVar1 = (char *)(**(code **)(*(int *)param_1 + 0x2a4))(param_1,param_3,0,0x10ab1);
+  pcVar2 = (char *)(**(code **)(*(int *)param_1 + 0x2a4))(param_1,param_4,0);
+  _Z1aP7_JNIEnvP8_1(pcVar1,pcVar2);
+  (**(code **)(*(int *)param_1 + 0x2a8))(param_1,param_3,pcVar1);
+  (**(code **)(*(int *)param_1 + 0x29c))(param_1,pcVar1);
+  return;
+}
+
+la fonction _Z1aP7_JNIEnvP8_1 prends 2 paramètres char (comme en java) donc j'imagine que le code autour est juste un boilerplate généré automatiquement pour bien rentrer les données dans la vraie fonction
+undefined4 _Z1aP7_JNIEnvP8_1(char *param_1,char *param_2)
+
+après avoir rename pour coller avec les infos que je connais j'essaye de comprendre la fonction
+
+on commence avec pleins de variables inconnues pour moi pour l'instant
+
+char * xoring(char *file_path,char *input_text)
+
+{
+  uint uVar1;
+  uint uVar2;
+  uint uVar3;
+  uint uVar4;
+  uint uVar5;
+  uint uVar6;
+  uint uVar7;
+  int iVar8;
+  size_t sVar9;
+  FILE *pFVar10;
+  char *pcVar11;
+  uint **ppuVar12;
+  char *pcVar13;
+  char *local_c90 [3];
+  FILE *pFStack_c84;
+  uint *apuStack_c80 [2];
+  uint auStack_c78 [786];
+  uint *puStack_30;
+  char *local_2c;
+  uint **local_28;
+  FILE *local_24;
+  char **local_20;
+  uint *canary;
+  uint local_18 [2];
+
+ensuite on a des canaries pour la sécurité (les deux derniere lignes je vois pas trop)
+  auStack_c78[0x311] = 0x108e3;
+  canary = (uint *)&__stack_chk_guard;
+  local_18[0] = ___stack_chk_guard;
+  pcVar13 = (char *)0x1;
+  ppuVar12 = apuStack_c80 + 0x314;
+
+après il y a pleins de XOR avec des valeurs hardcodées  et des ifs
+
+  if (((int)*input_text ^ l) == m) {
+    if ((((((int)input_text[1] ^ DAT_00013a18) == DAT_00013a38) &&
+         (((int)input_text[2] ^ DAT_00013a1c) == DAT_00013a3c)) &&
+        (((int)input_text[3] ^ DAT_00013a20) == DAT_00013a40)) &&
+       (((((int)input_text[4] ^ DAT_00013a24) == DAT_00013a44 &&
+         (((int)input_text[5] ^ DAT_00013a28) == DAT_00013a48)) &&
+        (((int)input_text[6] ^ DAT_00013a2c) == DAT_00013a4c)))) {
+      pcVar13 = (char *)0x1;
+      ppuVar12 = apuStack_c80 + 0x314;
+      if (((int)input_text[7] ^ DAT_00013a30) == DAT_00013a50) {
+        iVar8 = -0x318;
+        local_28 = apuStack_c80 + 0x314;
+        do {
+          uVar1 = (&DAT_00013a18)[iVar8];
+          uVar2 = (&DAT_00013a1c)[iVar8];
+          uVar3 = (&DAT_00013a20)[iVar8];
+          uVar4 = (&DAT_00013a24)[iVar8];
+          uVar5 = (&DAT_00013a28)[iVar8];
+          uVar6 = (&DAT_00013a2c)[iVar8];
+          uVar7 = (&DAT_00013a30)[iVar8];
+
+je recode la variable globale en tableau d'int comme il me semble que c'est le cas et rapidement je me rends compte qu'il doit y avoir 2 parties, la premiere partie du tableau (de 0 a 7) qui est la clé et 8 a 15 le password
+
+  if ((*input_text ^ HARDCODED_TABLE[0]) == HARDCODED_TABLE[8]) {
+    if (((((input_text[1] ^ HARDCODED_TABLE[1]) == HARDCODED_TABLE[9]) &&
+         ((input_text[2] ^ HARDCODED_TABLE[2]) == HARDCODED_TABLE[10])) &&
+        ((input_text[3] ^ HARDCODED_TABLE[3]) == HARDCODED_TABLE[0xb])) &&
+       ((((input_text[4] ^ HARDCODED_TABLE[4]) == HARDCODED_TABLE[0xc] &&
+         ((input_text[5] ^ HARDCODED_TABLE[5]) == HARDCODED_TABLE[0xd])) &&
+        ((input_text[6] ^ HARDCODED_TABLE[6]) == HARDCODED_TABLE[0xe])))) {
+
+je modifie donc encore la représentation de la data pour y voir plus clair
+
+  if ((*input_text ^ KEY[0]) == PASSWORD[0]) {
+    if (((((input_text[1] ^ KEY[1]) == PASSWORD[1]) &&
+        ((input_text[2] ^ KEY[2]) == PASSWORD[2])) &&
+        ((input_text[3] ^ KEY[3]) == PASSWORD[3])) &&
+       ((((input_text[4] ^ KEY[4]) == PASSWORD[4] &&
+       ((input_text[5] ^ KEY[5]) == PASSWORD[5])) &&
+        ((input_text[6] ^ KEY[6]) == PASSWORD[6])))) {
+
+je trouves ça déjà plus clair
+
+          uVar1 = KEY[i + 1];
+          uVar2 = KEY[i + 2];
+          uVar3 = KEY[i + 3];
+          uVar4 = KEY[i + 4];
+          uVar5 = KEY[i + 5];
+          uVar6 = KEY[i + 6];
+          uVar7 = KEY[i + 7];
+
+dans la suite c'est évidemment un tableau de char (une string)
+
+j'ai remarqué ensuite le ivar qui va a -792 et qui augmente de +8 en +8  ainsi que la variable uint auStack_c78 [786];
+pour moi c'est un déplacement de pointeur ou un truc comme ça
+
+en modifiant les typages dans la stack j'arrive a un truc un peu plus clean
+
+
+  if ((*input_text ^ KEY[0]) == PASSWORD[0]) {
+    if (((((input_text[1] ^ KEY[1]) == PASSWORD[1]) && ((input_text[2] ^ KEY[2]) == PASSWORD[2])) &&
+        ((input_text[3] ^ KEY[3]) == PASSWORD[3])) &&
+       ((((input_text[4] ^ KEY[4]) == PASSWORD[4] && ((input_text[5] ^ KEY[5]) == PASSWORD[5])) &&
+        ((input_text[6] ^ KEY[6]) == PASSWORD[6])))) {
+      pcVar12 = (char *)0x1;
+      ppuVar11 = xored;
+      if ((input_text[7] ^ KEY[7]) == PASSWORD[7]) {
+        i = uVar14;
+        xored[2] = (uint)xored;
+        do {
+          pcVar10 = KEY[i + 1];
+          uVar2 = KEY[i + 2];
+          uVar3 = KEY[i + 3];
+          uVar4 = KEY[i + 4];
+          uVar5 = KEY[i + 5];
+          uVar6 = KEY[i + 6];
+          uVar7 = KEY[i + 7];
+          xored[i] = KEY[i] ^ 100;
+          xored[i + 1] = pcVar10 ^ 100;
+          xored[i + 2] = uVar2 ^ 100;
+          xored[i + 3] = uVar3 ^ 100;
+          xored[i + 4] = uVar4 ^ 100;
+          xored[i + 5] = uVar5 ^ 100;
+          xored[i + 6] = uVar6 ^ 100;
+          xored[i + 7] = uVar7 ^ 100;
+          i = i + 8;
+        } while (i != 0);
+
+Je vais déjà dans cyberchef pour passer le if avec les valeurs que j'ai trouver dans la mémoire avec le XOR
+(img: sc/cyberchef.webp)
+https://gchq.github.io/CyberChef/#recipe=From_Hex('Space')XOR(%7B'option':'Hex','string':'6c%2067%2028%206e%202a%2058%2062%2068'%7D,'Standard',false)To_Hex('Space',0)From_Hex('Space')&input=MEEgMEIgMTggMEYgNUUgMzEgMEMgMEY&oeol=VT
+fl0ating
+Je vois qu'après il écrit un texte dans un fichier
+
+xored[4] = (uint)local_c90;
+sVar8 = strlen(file_path);
+xored[1] = (uint)calloc(sVar8 + 2,1);
+strcpy((char *)xored[1],file_path);
+sVar8 = strlen((char *)xored[1]);
+*(undefined2 *)(xored[1] + sVar8) = 0x68;
+pFVar9 = fopen((char *)xored[1],"wb");
+if (pFVar9 == (FILE *)0x0) {
+    pcVar12 = (char *)0x0;
+    ppuVar11 = (uint *)xored[2];
+}
+else {
+    pcVar10 = 4294964128;
+    xored[3] = (uint)pFVar9;
+    do {
+    xored[1] = pcVar10;
+    fputc(*(int *)(xored[4] + 3168 + pcVar10),(FILE *)xored[3]);
+    pcVar10 = xored[1] + 4;
+    } while (pcVar10 != 0);
+    fclose((FILE *)xored[3]);
+    ppuVar11 = (uint *)xored[2];
+}
+
+J'ai la flemme de déchiffrer et si ça se trouves j'ai déjà reussi à terminer donc je vais tenter d'installer l'app, d'écrire floater et de lire le fichier
+
+ça se lance pas sur mon api 34 donc je télécharges une api 29 au cas où
+
+ok ça se lance toujours pas, donc j'essaie de déchiffrer a la main.
+
+je demande un peu d'aide a chatgpt et il me montre cette ligne
+
+Bundle extras = getIntent().getExtras();
+if (extras == null) {
+    finish();
+    return;
+}
+if (!extras.getString("open").equalsIgnoreCase("sesame")) {
+    finish();
+    return;
+}
+
+en gros il faut que je le lance avec un intent qui a comme valeur open: sesame
+
+adb shell am start \                           ✔ 
+  -n com.stego.saw/.MainActivity \
+  --es open sesame
+
+et effectivement ça m'affiche une application
+
+avec un bouton qui ne semble rien faire, j'explore donc un peu plus le code pour voir comment activer l'alerte, rien de suspect il est censé créer un autre bouton qui n'apparait pas
+
+dans les log il y a ecrit:
+2026-08-07 15:35:39.492  7916-7916  AndroidRuntime          com.stego.saw                        E  FATAL EXCEPTION: main
+                                                                                                    Process: com.stego.saw, PID: 7916
+                                                                                                    android.view.WindowManager$BadTokenException: Unable to add window
+Je me dis que c'est peut être dans une histoire de droits, il y a de la création de fenetre donc je vais dans les paramètres et j'active le droit "display over other apps" et effectivement ça fonctionne un nouveau bouton apparait avec un champ de texte et une alerte, comme prévue il me propose un XOR, et je rentre le mdp fl0ating que j'avais trouvé précédemment, et une fois dans les fichiers je découvre un fichier DEX avec un flag a l'interieur
+emu64xa:/data/data/com.stego.saw # file h                                       
+h: Android dex file, version 035
+emu64xa:/data/data/com.stego.saw # strings h                                    
+<init>
+HTB{SawS0DCLing}
+Ljava/io/PrintStream;
+Ljava/lang/Object;
+Ljava/lang/String;
+Ljava/lang/System;
+[Ljava/lang/String;
+abcde.java
+logprint
+main
+println
+
+
+TERMINÉ c'est le bon flag
+
+Conclusion:
+Encore une fois je ne comprends pas pourquoi cet exo est classé comme étant plus dur que les précédents, la découverte du mdp pour le flag était 100x plus simple que pour certains exo précédents (un xor basique, pas obfusqué), il y avait un petit piège qui m'a bloqué et qui était le fait de lancer avec un intent, mais à par ça c'était vraiment super simple (même pas besoin de déchiffrer le flag ou je ne sais quoi)
