@@ -109,6 +109,9 @@ Welcome to the repository showcasing detailed writeups for various pentesting la
 - [SAW](./Challenges/SAW/Writeup.md)  
 ![SAW](./Challenges/SAW/header.webp)  
     *Overview*: Explores Android reverse engineering with a focus on hidden intent-based execution, native code XOR decryption analysis, and CyberChef-assisted password cracking to retrieve the flag.
+- [Celestial Scribe](./Challenges/Celestial%20Scribe/Writeup.md)  
+![Celestial Scribe](./Challenges/Celestial%20Scribe/header.webp)  
+    *Overview*: Use burp in the context of an Android app to explore a race condition exploitation in a note-taking API,, building a custom curses-based TUI client to juggle multiple accounts and confirm unauthorized note access.
 #### Perso
 - [DestinyEleven](./Perso/DestinyEleven/writeup.md)  
 ![DestinyEleven](./Perso/DestinyEleven/header.webp)  

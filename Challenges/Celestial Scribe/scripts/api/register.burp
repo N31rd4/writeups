@@ -1,0 +1,60 @@
+<?xml version="1.1"?>
+<!-- NOTE: Any NULL bytes in requests and responses are preserved within this output, even though this strictly breaks the XML syntax. If your XML parser rejects the NULL bytes then you will need to remove or replace these bytes before parsing. Alternatively, you can use the option to base64-encode requests and responses. -->
+<!DOCTYPE items [
+<!ELEMENT items (item*)>
+<!ATTLIST items burpVersion CDATA "">
+<!ATTLIST items exportTime CDATA "">
+<!ELEMENT item (time, url, host, port, protocol, method, path, extension, request, status, responselength, mimetype, response, comment)>
+<!ELEMENT time (#PCDATA)>
+<!ELEMENT url (#PCDATA)>
+<!ELEMENT host (#PCDATA)>
+<!ATTLIST host ip CDATA "">
+<!ELEMENT port (#PCDATA)>
+<!ELEMENT protocol (#PCDATA)>
+<!ELEMENT method (#PCDATA)>
+<!ELEMENT path (#PCDATA)>
+<!ELEMENT extension (#PCDATA)>
+<!ELEMENT request (#PCDATA)>
+<!ATTLIST request base64 (true|false) "false">
+<!ELEMENT status (#PCDATA)>
+<!ELEMENT responselength (#PCDATA)>
+<!ELEMENT mimetype (#PCDATA)>
+<!ELEMENT response (#PCDATA)>
+<!ATTLIST response base64 (true|false) "false">
+<!ELEMENT comment (#PCDATA)>
+]>
+<items burpVersion="2026.7.2" exportTime="Tue Aug 18 16:32:53 CEST 2026">
+  <item>
+    <time>Tue Aug 18 15:58:47 CEST 2026</time>
+    <url><![CDATA[http://154.57.164.82:30785/api/auth/register]]></url>
+    <host ip="154.57.164.82">154.57.164.82</host>
+    <port>30785</port>
+    <protocol>http</protocol>
+    <method><![CDATA[POST]]></method>
+    <path><![CDATA[/api/auth/register]]></path>
+    <extension>null</extension>
+    <request base64="false"><![CDATA[POST /api/auth/register HTTP/1.1
+Content-Type: application/json; charset=utf-8
+Content-Length: 32
+Host: 154.57.164.82:30785
+Connection: keep-alive
+Accept-Encoding: gzip, deflate, br
+User-Agent: okhttp/4.10.0
+
+{"password":"a","email":"a@a.a"}]]></request>
+    <status>200</status>
+    <responselength>471</responselength>
+    <mimetype>JSON</mimetype>
+    <response base64="false"><![CDATA[HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 235
+ETag: W/"eb-+41UNGY6OQla5Gs73v/ZjlkJlb8"
+Date: Tue, 18 Aug 2026 13:58:47 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"success":true,"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjQwNmI2MGI3LTI2MmMtNDA0Zi1iOWU4LWRkODA0YTUyZmU3OSIsImVtYWlsIjoiYUBhLmEiLCJpYXQiOjE3ODcwNjE1MjcsImV4cCI6MTc4NzA2MjQyN30.k0NA6AvEZ1jmFzMOv8SDAfgS5DkwZotN0s_eCrJepAk"}]]></response>
+    <comment></comment>
+  </item>
+</items>

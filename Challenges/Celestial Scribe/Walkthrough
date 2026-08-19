@@ -1,0 +1,153 @@
+Nouveau challenge Celestial Scribe
+Avant dernier challenge "mobile" de HackTheBox
+
+Challenge Scenario
+
+A new secure note-taking app promises complete privacy, or is it?
+
+J'ai télécharger le zip et je me retrouves avec une apk, MAIS CE N'EST PAS TOUT, pour une fois il y a aussi un serveur de challenge auquel se connecter, peut être que je vais devoir intercepter des requêtes, peut-être que je vais devoir utiliser burp je ne sais pas encore
+
+J'ouvre le package avec jadx-gui au moins pour voir si je peux le lancer dans une vm android sur mon pc ou si il faut que je l'installe sur mon vrai tel
+
+les librairies sembles être toutent dispo en x86, je me suis connecté au vpn, je peux donc lancer l'application sur android studio
+
+comme je m'y attendais il me demande l'adresse ip de htb (ce qui est bien c'est que c'est de l'http, je vais pas avoir besoin d'unpin et les trucs comme ça)
+(img: sc/main.webp)
+
+Je lance burp, connecte le proxy dans les paramètres android et je passes sur toutes les fonctions (login, register, new note etc) pour me faire une idée du fonctionnement
+
+
+Le register donne un jwt
+
+le jwt est ensuite envoyé a auth/verify qui retourne un userID
+
+le login fait la même chose
+
+l'api pour retourner les notes prends le jwt en AUTH et retourne un json ou chaque note a un UUID indétectable
+
+lorsque l'on poste une note dans le cloud une requette "post" est envoyé avec un UUID qui est set par l'app en local et le contenu des textes
+
+quand on récupère une note il fait une commande "check permission" (surement pour l'UUID)
+
+GET /api/notes/f5062434-7cbe-4197-9c49-b8957ab3ceaf/check-permission HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE2MmQ1MTI3LThjMGEtNDI4NC1iNjNmLTczMzE0MzNjN2MyZSIsImVtYWlsIjoiZW1haWxAbWFpbC5jb20iLCJpYXQiOjE3ODYzNzUzMDgsImV4cCI6MTc4NjM3NjIwOH0.oFSS4RqSTnqE_CSp8e-MXFNwHSBd1zpMC_-WJM5YDAI
+
+et ensuite il envoie une deuxième commande pour récupérer le contenue (transmit en clair)
+GET /api/notes/f5062434-7cbe-4197-9c49-b8957ab3ceaf HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE2MmQ1MTI3LThjMGEtNDI4NC1iNjNmLTczMzE0MzNjN2MyZSIsImVtYWlsIjoiZW1haWxAbWFpbC5jb20iLCJpYXQiOjE3ODYzNzUzMDgsImV4cCI6MTc4NjM3NjIwOH0.oFSS4RqSTnqE_CSp8e-MXFNwHSBd1zpMC_-WJM5YDAI
+Host: 154.57.164.82:32310
+Connection: keep-alive
+Accept-Encoding: gzip, deflate, br
+User-Agent: okhttp/4.10.0
+
+
+ce processus laisse fortement entendre que le jwt peut être mal (ou pas) vérifier lors de la deuxieme requete et que toute la sécuritée se repose sur le fait que l'application locale en elle même refuse de faire la requete si le jwt est refusé, ce qui est le niveau 0 de la sécuritée
+
+je teste ça en envoyant de nouveau la requette pour recevoir la note mais en changeant la signature du jwt (donc invalide, ne devrait pas passer si testée)
+ça ne fonctionne pas, le jwt est au moins testé un petit peu.
+
+quand je décode le JWT je ne vois rien de spécial, un UUID, mon mail, et une durée de vie de 15 minutes
+{
+  "id": "162d5127-8c0a-4284-b63f-7331433c7c2e",
+  "email": "email@mail.com",
+  "iat": 1786375308,
+  "exp": 1786376208
+}
+
+A première vue il n'y a donc rien dans l'api qui puisse être vraiment exploitable, j'espère donc voir dans l'APK peut être des restes d'un mode débug avec des logins d'admin (ou alors la clé de chiffrement du jwt restée dans le code)
+
+je trouves un sac de noeuds avec pleins de classes (beaucoup trop pour les besoins), et je passe rapidement sur chacune d'entre elles avec ma théorie originale de la clée écrite en dur
+
+je trouves vraiment rien d'interressant en plus au final je penses que toutes les classes sont juste des librairies pour faire des requêtes, j'essaie de trouvrt des infos autre part
+
+dans kotlin/coroutines/coroutines_kotlin.builtins je tombes sur 
+3hackToForceKotlinBuiltinsForKotlinCoroutinesPackage
+il y a hack dans le nom
+mais c'est une fausse piste
+
+il reste "libconscrypt_jni.so" a analyser mais bon quand je tapes son nom sur internet je vois qu'elle est déjà utilisée autre part, si c'est une librairie qui existe en dehors de l'exo elle est surement pas custom
+
+je décide de tester avec 2 comptes pour voir si je peux lire avec un ID que je connais déjà
+
+vu qu'on est a l'aire de l'ia j'ai bien envie de tester un petit truc,
+j'ai la flemme de faire les deux comptes puis de jongler entre les deux donc je tentes de donner les infos des différentes requetes a opencode pour me faire un tui qui teste rapidement les différentes requetes
+c'est surement overkill (je pourrais juste ouvrire deux vm android) mais j'ai envie de tester.
+
+En premier je récupère toute l'api que j'ai réussi a scrap dans burp (img: sc/api.webp)
+ensuite je crée le prompt en lui montrant un peu le workflow
+
+"
+je veux que tu me crée dans un nouveau dossier une app TUI python qui reproduit le comportement d'une application avec des fins de pentest.
+Je vais t'expliquer un peu le fonctionnement observé de l'api et tu verras un dossier api dans lequel tu auras des exemples de requettes capturées avec burp.
+Mon but principal est de pouvoir gérer plusieurs comptes à la fois, pour tester les intéractions, je te laisses génerer des mots de passes et des mails tout seul (c'est un challenge htb tu n'as besoin de rien de compliqué, un mail sous le format a@a.a suffit et un mdp a un charactere passe), je veux pouvoir creer des comptes en un seul clique et pouvoir alterner entre eux avec des tabs par exemple, les jwt ont des durées de vie de 15 minutes donc en cas d'erreur je m'attends a ce qu'il se relogin automatiquement.
+
+lors du lancement de l'application, dans le logiciel il y aura besoin de deux paramètres, 1. l'adresse du proxy burp, 2. l'adresse du serveur htb
+
+Le flow du login et du register est assez classique (jwt), le jwt a une durée de vie de 15 minutes.
+Avant de récuperer la liste de notes (get_notes.burp) il fait souvent un verify (verify.burp)
+Avant de get le contenu d'une note (get_note.burp) il fait systematiquement un check (check_note.burp)
+"
+
+je lance opencode pour voir si il peut me faire un truc sympa qui me permetrait de rendre abstrait la gestion de compte et faciliter mon workflow (gpt 5.6 terra avec mon abonnement copilot)
+
+bon je pensais que ça prendrait que 2 minutes grand max mais en attendant on va continuer a tester des trucs avec burp et la vm
+
+je me demande par exemple si on peut acceder a une note en bloquant le check
+je fais une requette sur une note sans le check et effectivement ça fonctionne, l'utilitée du check me semble de plus en plus floue
+
+en attendant mon TUI pour tester l'api est terminée, après quelques modifs tout fonctionne très bien (img: sc/tui.web), effectivement c'était peut ếtre un peu overkill juste pour faire un test entre deux comptes mais je voulais tester la capacité de l'ia a créer des outils qui facilitent le pentest, et je trouves ça plus simple maintenant de checker ça
+
+déjà je remarques grâce a l'app que les notes par défauts ont des uuid differents (totalement logique avec du recul mdr), maintenant au moins je peux voir si je peux lire les notes d'autruis
+
+rapidement, avec ou sans check permission je me dis que c'est pas possible, le check permission me laisse quand même un gout bizarre dans la bouche, j'ai l'impression selon la path qu'il est relié a la note, et vu que l'app de base attends que cette requette se fasse elle doit avoir un rôle concret que je n'ai pas compris
+
+je tentes plusieurs trucs
+
+quand je fais une requete check valide pour un compte et que j'envoies dans la même connection la path vers la note d'un autre compte j'ai un note not found au lieu de "unauthorized"
+
+est ce que le file not found dans une seule request c'est pas une histoire de http
+
+je me souviens vaguement dans un ctf d'une faille qui se basait sur le fait d'envoyer deux requettes http en une seule, même si ça me parait bizarre pour un challenge "moyen" j'explore vitefais la piste et j'essaie de retrouver le nom et le fonctionnement de la faille (en écrivant ces mots je me rapelle du nom http smuggling)
+ils utilisent http 1.1 en plus donc c'est peut être la bonne cible
+
+Mais non ça ne marches pas.
+
+je continue d'explorer l'api, j'essaie par exemple de creer une note avec un UUID identique a une autre note (pour savoir si la recherche de note se fait par uuid+user ou alors juste uuid)
+
+forbidden donc les uuid sont vraiment unique pour tout les utilisateurs, d'ailleurs je peux donc utiliser cette strat pour voir si il y a des uuid déjà utilisés, bon part définition les uuid sont trop longs pour être énumérés, mais si je n'arrive pas a les lister alors le flag a peut être un nom beaucoup plus simple, je tentes des trucs a la main "secret", "flag", "test" etc... mais je ne trouves vraiment rien même avec les 10000 premiers inputs de rockyou,
+ça veut dire qu'il faudrait que j'arrive a lister les notes d'autres personnes ?
+je sais pas, je continue de chercher et de tester des trucs autour de la requete "checknote" peut être qu'une fois check il vérifie pas la signature du jwt ?
+non
+je suis vraiment stuck, je vais voir de nouveau l'apk (après tout c'est censé être un exo catégorie mobile et pas web)
+je trouves l'endroit où est situé la requete vers /check-permission (les fichiers que je pensais au final être des librairies toutes faites)
+je renomme beaucoup de trucs mais je trouves rien d'interressant, le même workflow auquel je pensais
+
+Après 2 jours de recherches infructueuse j'abandonne et je vais chercher la réponse ET JE PETE UN CABLE,
+c'est la première fois de ma vie que je vais mettre une review avec la note minimum a un challenge HTB c'est du FOUTAGE DE GEULE.
+
+je vous explique:
+
+La solution, comme mon intuition me disais depuis le début, était de faire le check sur une note valide et de faire une race condition pour récupérer la note de l'admin à l'ID "1" ("/notes/1"). Requetes groupées sur burp, dans une seule connection et ça passe a 100%.
+
+MAIS... si vous suivez bien ce writeup, c'est EXACTEMENT ce que j'avais essayé de testé. Je m'étais dit que l'uuid était introuvable et vu qu'on avait aucun moyen de lister (et que l'UUID était arbitrairement géré par le client), alors surement l'ID de la note à trouver était un mot simple, j'avais donc cherché un moyen de tester si des notes existaient sur d'autres comptes en tentant d'en créer des nouveaux et en regardant si il me retournais 200 (n'éxistait pas) ou 403 (existe).
+Et ça fonctionnait TRÈS bien exemple d'une note crée sur un autre compte et testée avec la methode (img: sc/403.webp)
+
+OR ORRRR ORRRRRR
+
+quand je teste avec l'id "/notes/1" AUCUN PROBLEME MON GARS, CETTE NOTE N'EXISTAIT PAS (200), ON VIENT DE LA CRÉER SUR TON COMPTE (img: sc/200.webp)
+
+PIRE
+une fois que je teste l'exploit avec ce compte, il me retourne la note "1" de ce compte (donc ça marche plus)
+
+
+AUTRE CHOSE
+
+Quand on teste l'exploit avec deux comptes différents, le MEME fameux exploit de race condition, CA NE MARCHE PAS, donc AUCUN MOYEN DE PROUVER QUE C'EST BIEN CA L'EXPLOIT SANS AVOIR LA NOTE DE L'ADMIN (ex: c'est censé fonctionner là avec mes deux comptes img: sc/not_found.webp)
+En d'autre termes la solution est une faille QUI EN RÉALITÉ N'EXISTE PAS SUR LE SERVEUR, ils ont hardcodé un chemin a faire pour donner l'impression d'une faille, mais dans le fonctionnement normal du serveur elle n'existe pas
+
+Parceque ce qu'on est censé comprendre c'est que le check change une variable globale temporairement qui permet ensuite de lire n'importe quelle note si on trouves son id unique, MAIS AU FINAL l'id de la note pour le flag n'est pas unique et la faille n'existe même pas en dehors des condition précises pour avoir le flag
+
+je vous ais fait un schéma pour comprendre la faille qu'on essaie de simuler et la facon dont la path a étée hardcodée: (img: sc/schema.webp)
+
+ENFIN BREF: conclusions:
+J'ai pu me rapeller un peu de comment utiliser burp avec android studio (sans gérer les certificats ssl et les pins), j'ai pu aussi tester le fait d'utiliser l'IA pour génerer des scripts d'aide (très utile) donc c'est pas du temps perdu, après c'était pas vraiment une epreuve de reverse, c'était vraiment du web qui aurait pas été particulièrement long à faire si la race condition avait étée bien implémentée. Si ça se trouves il y a des raisons qui font qu'il ne pouvais pas l'implémenter normalement (si il y a plusieurs personnes en même temps sur le challenge peut être) mais bon j'ai l'impression d'avoir perdu mon temps a cause d'une erreur de design

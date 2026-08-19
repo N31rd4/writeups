@@ -1,0 +1,59 @@
+<?xml version="1.1"?>
+<!-- NOTE: Any NULL bytes in requests and responses are preserved within this output, even though this strictly breaks the XML syntax. If your XML parser rejects the NULL bytes then you will need to remove or replace these bytes before parsing. Alternatively, you can use the option to base64-encode requests and responses. -->
+<!DOCTYPE items [
+<!ELEMENT items (item*)>
+<!ATTLIST items burpVersion CDATA "">
+<!ATTLIST items exportTime CDATA "">
+<!ELEMENT item (time, url, host, port, protocol, method, path, extension, request, status, responselength, mimetype, response, comment)>
+<!ELEMENT time (#PCDATA)>
+<!ELEMENT url (#PCDATA)>
+<!ELEMENT host (#PCDATA)>
+<!ATTLIST host ip CDATA "">
+<!ELEMENT port (#PCDATA)>
+<!ELEMENT protocol (#PCDATA)>
+<!ELEMENT method (#PCDATA)>
+<!ELEMENT path (#PCDATA)>
+<!ELEMENT extension (#PCDATA)>
+<!ELEMENT request (#PCDATA)>
+<!ATTLIST request base64 (true|false) "false">
+<!ELEMENT status (#PCDATA)>
+<!ELEMENT responselength (#PCDATA)>
+<!ELEMENT mimetype (#PCDATA)>
+<!ELEMENT response (#PCDATA)>
+<!ATTLIST response base64 (true|false) "false">
+<!ELEMENT comment (#PCDATA)>
+]>
+<items burpVersion="2026.7.2" exportTime="Tue Aug 18 16:34:07 CEST 2026">
+  <item>
+    <time>Tue Aug 18 16:00:11 CEST 2026</time>
+    <url><![CDATA[http://154.57.164.82:30785/api/notes]]></url>
+    <host ip="154.57.164.82">154.57.164.82</host>
+    <port>30785</port>
+    <protocol>http</protocol>
+    <method><![CDATA[GET]]></method>
+    <path><![CDATA[/api/notes]]></path>
+    <extension>null</extension>
+    <request base64="false"><![CDATA[GET /api/notes HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjQwNmI2MGI3LTI2MmMtNDA0Zi1iOWU4LWRkODA0YTUyZmU3OSIsImVtYWlsIjoiYUBhLmEiLCJpYXQiOjE3ODcwNjE1MjcsImV4cCI6MTc4NzA2MjQyN30.k0NA6AvEZ1jmFzMOv8SDAfgS5DkwZotN0s_eCrJepAk
+Host: 154.57.164.82:30785
+Connection: keep-alive
+Accept-Encoding: gzip, deflate, br
+User-Agent: okhttp/4.10.0
+
+]]></request>
+    <status>200</status>
+    <responselength>605</responselength>
+    <mimetype>JSON</mimetype>
+    <response base64="false"><![CDATA[HTTP/1.1 200 OK
+X-Powered-By: Express
+Content-Type: application/json; charset=utf-8
+Content-Length: 368
+ETag: W/"170-I/u/smSiWRruK299gJYoBFUyYQA"
+Date: Tue, 18 Aug 2026 14:00:11 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"success":true,"notes":[{"id":"9383543c-014d-4629-8d35-0398a6ccb052","title":"Welcome to Secure Cloud Notes","createdAt":"2026-08-18T13:58:47.497Z"},{"id":"7cb3c7b9-8ffc-4901-82aa-2c7c30736574","title":"Security Features","createdAt":"2026-08-18T13:58:47.497Z"},{"id":"315e4e72-61a9-49aa-9bf8-500fe7be00e7","title":"dsadsads","createdAt":"2026-08-18T13:59:08.036Z"}]}]]></response>
+    <comment></comment>
+  </item>
+</items>
